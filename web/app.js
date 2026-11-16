@@ -20,6 +20,13 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // Motion. Set by user actions (pick a site, switch variable) so that resizes
+  // and font loads redraw instantly while real changes animate.
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let animateNext = false;
+  const ease = (x) => 1 - Math.pow(1 - x, 3);
+  const lerp = (a, b, k) => a + (b - a) * k;
+
   // One floating readout, reused by every mark on the page. Marks carry a short
   // aria-label instead of a native <title>, so the custom tip is the only one shown.
   const tip = document.createElement("div");
@@ -187,7 +194,7 @@
       dot.setAttribute("aria-label", p.site.name);
       attachTip(dot,
         `<b>${p.site.name}</b><br>rain ${fmt(p.x, 1)} % \u00b7 temp ${fmt(p.y, 2)} \u00b0C per decade<br><span class="muted">temp p ${pLabel(p.site.series.t2m.p_value)} \u00b7 ${p.site.series.t2m.survives_fdr ? "survives FDR" : "raw p only"}</span>`);
-      dot.addEventListener("click", () => select(p.site.id));
+      dot.addEventListener("click", () => select(p.site.id, true));
       svg.appendChild(dot);
     }
 
@@ -368,6 +375,13 @@
     return ticks;
   }
 
+  let chartPrev = null;   // last drawn geometry, so the next site can morph from it
+  let chartRaf = 0;
+  const live = document.createElement("p");   // spoken readout for keyboard users
+  live.className = "sr-only";
+  live.setAttribute("aria-live", "polite");
+  document.body.appendChild(live);
+
   function drawChart(site) {
     const series = site.series[state.variable];
     const svg = $("chart");
@@ -411,20 +425,40 @@
     }
     svg.appendChild(axis);
 
-    // annual series
-    svg.appendChild(el("path", {
-      d: values.map((v, i) => `${i ? "L" : "M"}${sx(years[i])},${sy(v)}`).join(" "),
-      class: "series-line",
-    }));
+    if (animateNext && !reduceMotion) axis.classList.add("axis-fade");
+
+    // Screen geometry for this site, kept so the next site can morph from it.
+    const pts = values.map((v, i) => [sx(years[i]), sy(v)]);
+    const sen = [sx(x0), sy(senStart), sx(x1), sy(senEnd)];
+    const fitAt = (year) => series.sen_intercept + series.slope_per_year * year;
+    const pathOf = (ps) => ps.map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(" ");
+
+    // residual stick from the hovered year to the trend line (drawn under the data)
+    const resid = el("line", { class: "resid" });
+    const cursor = el("g", { class: "cursor" });
+    const guide = el("line", { class: "guide", y1: pad.t, y2: H - pad.b });
+    cursor.append(guide, resid);
+    svg.appendChild(cursor);
+
+    const line = el("path", { d: pathOf(pts), class: "series-line" });
+    svg.appendChild(line);
 
     const dots = el("g", { class: "series-dots" });
-    values.forEach((v, i) => dots.appendChild(el("circle", { cx: sx(years[i]), cy: sy(v), r: 1.7 })));
+    const dotEls = pts.map((q) => {
+      const c = el("circle", { cx: q[0], cy: q[1], r: 1.9 });
+      dots.appendChild(c);
+      return c;
+    });
     svg.appendChild(dots);
 
-    // Sen's slope
-    svg.appendChild(el("line", {
-      x1: sx(x0), y1: sy(senStart), x2: sx(x1), y2: sy(senEnd), class: "sen-line",
-    }));
+    const senLine = el("line", { x1: sen[0], y1: sen[1], x2: sen[2], y2: sen[3], class: "sen-line" });
+    svg.appendChild(senLine);
+
+    const focusSen = el("circle", { class: "focus-sen", r: 3.5 });
+    const focusDot = el("circle", { class: "focus-dot", r: 5 });
+    const cursorTop = el("g", { class: "cursor" });
+    cursorTop.append(focusSen, focusDot);
+    svg.appendChild(cursorTop);
 
     // axis unit
     const unit = el("text", { x: pad.l, y: 10, class: "axis" });
@@ -432,6 +466,95 @@
     unit.setAttribute("font-size", "10.5");
     unit.textContent = `${D.variables[state.variable].label} (${units(state.variable)})`;
     svg.appendChild(unit);
+
+    // ---- transition from the previous site
+    cancelAnimationFrame(chartRaf);
+    const from = chartPrev;
+    chartPrev = { pts, sen };
+    if (animateNext && !reduceMotion) {
+      if (from && from.pts.length === pts.length) {
+        const t0 = performance.now(), dur = 700;
+        const step = (now) => {
+          const k = ease(Math.min(1, (now - t0) / dur));
+          const cur = pts.map((q, i) => [lerp(from.pts[i][0], q[0], k), lerp(from.pts[i][1], q[1], k)]);
+          line.setAttribute("d", pathOf(cur));
+          cur.forEach((q, i) => { dotEls[i].setAttribute("cx", q[0]); dotEls[i].setAttribute("cy", q[1]); });
+          ["x1", "y1", "x2", "y2"].forEach((a, j) => senLine.setAttribute(a, lerp(from.sen[j], sen[j], k)));
+          if (k < 1) chartRaf = requestAnimationFrame(step);
+        };
+        step(t0);
+      } else {
+        svg.classList.remove("draw-in");
+        void svg.getBoundingClientRect();
+        line.style.setProperty("--len", line.getTotalLength());
+        svg.classList.add("draw-in");
+      }
+    }
+
+    // ---- reading individual years: pointer, touch and keyboard
+    const unitText = units(state.variable);
+    const digits = state.variable === "precip" ? 0 : 2;
+    let active = -1;
+
+    function show(i) {
+      active = i;
+      const [px, py] = pts[i];
+      const fit = fitAt(years[i]);
+      const fy = sy(fit);
+      guide.setAttribute("x1", px); guide.setAttribute("x2", px);
+      resid.setAttribute("x1", px); resid.setAttribute("x2", px);
+      resid.setAttribute("y1", py); resid.setAttribute("y2", fy);
+      focusDot.setAttribute("cx", px); focusDot.setAttribute("cy", py);
+      focusSen.setAttribute("cx", px); focusSen.setAttribute("cy", fy);
+      cursor.classList.add("on"); cursorTop.classList.add("on");
+      dotEls.forEach((c, j) => c.classList.toggle("dim", j !== i));
+
+      const v = values[i], diff = v - fit;
+      const rel = state.variable === "precip" && fit ? ` (${fmt((diff / fit) * 100, 0)}%)` : "";
+      tip.innerHTML =
+        `<b>${years[i]}</b> · ${v.toFixed(digits)} ${unitText}<br>` +
+        `<span class="muted">trend ${fit.toFixed(digits)} · </span>` +
+        `<span class="${diff >= 0 ? "up" : "down"}">${fmt(diff, digits)} ${unitText}${rel}</span>` +
+        `<span class="muted"> vs trend</span>`;
+      const box = svg.getBoundingClientRect();
+      tip.style.left = `${box.left + (px / W) * box.width}px`;
+      tip.style.top = `${box.top + (Math.min(py, fy) / H) * box.height - 6}px`;
+      tip.classList.add("on");
+      live.textContent = `${years[i]}: ${v.toFixed(digits)} ${unitText}, ${fmt(diff, digits)} versus the trend.`;
+    }
+
+    function hide() {
+      active = -1;
+      cursor.classList.remove("on"); cursorTop.classList.remove("on");
+      dotEls.forEach((c) => c.classList.remove("dim"));
+      tip.classList.remove("on");
+    }
+
+    const nearest = (clientX) => {
+      const box = svg.getBoundingClientRect();
+      const x = ((clientX - box.left) / box.width) * W;
+      let best = 0;
+      for (let i = 1; i < pts.length; i++) if (Math.abs(pts[i][0] - x) < Math.abs(pts[best][0] - x)) best = i;
+      return best;
+    };
+
+    svg.onpointermove = (ev) => { const i = nearest(ev.clientX); if (i !== active) show(i); };
+    svg.onpointerdown = (ev) => show(nearest(ev.clientX));
+    svg.onpointerleave = (ev) => { if (ev.pointerType === "mouse") hide(); };
+    svg.onblur = hide;
+    svg.onfocus = () => { if (active < 0) show(pts.length - 1); };
+    svg.onkeydown = (ev) => {
+      const k = ev.key;
+      let i = active < 0 ? pts.length - 1 : active;
+      if (k === "ArrowLeft") i = Math.max(0, i - 1);
+      else if (k === "ArrowRight") i = Math.min(pts.length - 1, i + 1);
+      else if (k === "Home") i = 0;
+      else if (k === "End") i = pts.length - 1;
+      else if (k === "Escape") { hide(); return; }
+      else return;
+      ev.preventDefault();
+      show(i);
+    };
   }
 
   // ------------------------------------------------------------------- detail
@@ -452,17 +575,22 @@
     verdict.className = "verdict" + (series.survives_fdr ? " yes" : "");
 
     const rel = relIsMeaningful(state.variable) ? series.rel_pct_per_decade : null;
+    // <span class="n"> marks a number that counts from the previous site's value.
+    const num = (key, v, d, plain) =>
+      `<span class="n" data-key="${key}" data-to="${v}" data-d="${d}"${plain ? " data-plain" : ""}>${plain ? v.toFixed(d) : fmt(v, d)}</span>`;
     $("stats").innerHTML = `
       <div class="stat"><div class="k">Sen's slope</div>
-        <div class="v">${fmt(slope, 2)}<small>${deltaUnit(state.variable)} / decade</small></div></div>
+        <div class="v">${num("slope", slope, 2)}<small>${deltaUnit(state.variable)} / decade</small></div></div>
       <div class="stat"><div class="k">Relative trend</div>
-        <div class="v">${rel === null ? "n/a" : fmt(rel, 1) + "<small>% / decade</small>"}${rel === null ? "<small>ratio scale only</small>" : ""}</div></div>
+        <div class="v">${rel === null ? "n/a" : num("rel", rel, 1) + "<small>% / decade</small>"}${rel === null ? "<small>ratio scale only</small>" : ""}</div></div>
       <div class="stat"><div class="k">Mann–Kendall p</div>
-        <div class="v">${pText}</div></div>
+        <div class="v">${series.p_value < 0.001 ? pText : num("p", series.p_value, 3, true)}</div></div>
       <div class="stat"><div class="k">First → last decade</div>
-        <div class="v">${fmt(series.decade_delta, 1)}<small>${deltaUnit(state.variable)}</small></div></div>`;
+        <div class="v">${num("delta", series.decade_delta, 1)}<small>${deltaUnit(state.variable)}</small></div></div>`;
+    countStats();
 
     drawChart(site);
+    if (animateNext) swap("site-name", "site-meta", "reading", "verdict");
 
     const direction = slope > 0 ? "rising" : "falling";
     const magnitude = Math.abs(slope);
@@ -471,6 +599,41 @@
     $("reading").textContent = sig
       ? `${site.name} is ${direction} at ${grade}. Under the Mann–Kendall test (p = ${pText}) a change this consistent is unlikely to be chance, and the first decade averaged ${series.first_decade.toFixed(1)} ${unit} against ${series.last_decade.toFixed(1)} ${unit} in the last. ${site.note}`
       : `${site.name} shows no trend that this test separates from chance (p = ${pText}); the fitted slope is ${grade}. ${site.note} Note the difference between "no evidence of a trend" and "evidence of no trend" — 35 years of one modelled grid cell is not enough for the second claim.`;
+  }
+
+  let statPrev = {};
+  let statRaf = 0;
+  function countStats() {
+    cancelAnimationFrame(statRaf);
+    const nodes = [...document.querySelectorAll("#stats .n")];
+    const runs = nodes.map((n) => ({
+      n, to: Number(n.dataset.to), d: Number(n.dataset.d), plain: "plain" in n.dataset,
+      from: statPrev[n.dataset.key],
+    }));
+    statPrev = Object.fromEntries(runs.map((r) => [r.n.dataset.key, r.to]));
+    if (!animateNext || reduceMotion) return;
+    const t0 = performance.now(), dur = 650;
+    const step = (now) => {
+      const k = ease(Math.min(1, (now - t0) / dur));
+      for (const r of runs) {
+        if (r.from === undefined) continue;
+        const v = lerp(r.from, r.to, k);
+        r.n.textContent = r.plain ? v.toFixed(r.d) : fmt(v, r.d);
+      }
+      if (k < 1) statRaf = requestAnimationFrame(step);
+    };
+    step(t0);
+  }
+
+  // Text blocks fade up when the site changes.
+  function swap(...ids) {
+    if (reduceMotion) return;
+    for (const id of ids) {
+      const node = $(id);
+      node.classList.remove("swap");
+      void node.offsetWidth;
+      node.classList.add("swap");
+    }
   }
 
   // -------------------------------------------------------------------- table
@@ -499,7 +662,7 @@
         <td class="num">${fmt(series.decade_delta, 1)} <span style="color:var(--muted)">${deltaUnit(variable)}</span></td>
         <td class="num">${pLabel(series.p_value)}</td>
         <td><span class="tag${survives ? " yes" : ""}">${survives ? "survives FDR" : sig ? "raw p only" : "not significant"}</span></td>`;
-      tr.addEventListener("click", () => select(site.id));
+      tr.addEventListener("click", () => select(site.id, true));
       $("rows").appendChild(tr);
     }
   }
@@ -511,16 +674,32 @@
     drawMap();
     drawDetail(site);
     drawTable();
+    animateNext = false;
   }
 
-  function select(id) {
+  function select(id, reveal) {
+    if (id === state.siteId) return;
     state.siteId = id;
+    tip.classList.remove("on");
+    animateNext = true;
     render();
+    // Clicked somewhere far from the chart (scatter, table): glide to it.
+    const card = document.querySelector(".detail-card");
+    if (reveal && card) {
+      const r = card.getBoundingClientRect();
+      if (r.top < 70 || r.bottom > innerHeight) {
+        const y = scrollY + r.top - Math.max(80, (innerHeight - r.height) / 2);
+        if (window.smoothScrollTo) window.smoothScrollTo(y);
+        else scrollTo({ top: y, behavior: reduceMotion ? "auto" : "smooth" });
+      }
+    }
   }
 
   for (const button of document.querySelectorAll("#variable-toggle button")) {
     button.addEventListener("click", () => {
+      if (state.variable === button.dataset.variable) return;
       state.variable = button.dataset.variable;
+      animateNext = true;
       for (const other of document.querySelectorAll("#variable-toggle button")) {
         other.classList.toggle("on", other === button);
       }

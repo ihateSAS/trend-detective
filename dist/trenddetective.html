@@ -323,6 +323,7 @@ code { font-family: var(--mono); font-size: 0.92em; color: #d4d4d8; }
 }
 
 .marquee-track i { font-style: normal; font-size: 0.45em; color: var(--sen); }
+.marquee:hover .marquee-track { animation-play-state: paused; }
 .marquee-track span:nth-of-type(even) { color: transparent; -webkit-text-stroke: 1px #71717a; }
 
 @keyframes slide {
@@ -403,9 +404,12 @@ main { display: block; }
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
+  transition: border-color 300ms ease;
   border-radius: 6px;
   padding: clamp(16px, 2vw, 28px);
 }
+
+.card:hover { border-color: #2e2e36; }
 
 .split {
   display: grid;
@@ -564,7 +568,42 @@ main { display: block; }
 .stat .v small { font-family: var(--sans); font-size: 11.5px; font-weight: 400; letter-spacing: 0; color: var(--muted); margin-left: 3px; }
 
 .chart-wrap { width: 100%; }
-#chart { width: 100%; height: 260px; display: block; }
+#chart { width: 100%; height: 260px; display: block; cursor: crosshair; outline: none; touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+#chart:focus-visible { box-shadow: 0 0 0 1px var(--line); border-radius: 4px; }
+
+/* Year cursor on the site chart */
+.cursor { opacity: 0; transition: opacity 160ms ease; pointer-events: none; }
+.cursor.on { opacity: 1; }
+.guide { stroke: #3f3f46; stroke-width: 1; stroke-dasharray: 2 3; }
+.resid { stroke: #e4e4e7; stroke-width: 1.5; stroke-opacity: 0.55; }
+.focus-dot { fill: var(--accent); stroke: var(--panel); stroke-width: 2.5; }
+.focus-sen { fill: var(--sen); stroke: var(--panel); stroke-width: 2; }
+.series-dots circle { transition: opacity 160ms ease; }
+.series-dots circle.dim { opacity: 0.35; }
+#tip .up { color: #f0a090; }
+#tip .down { color: #8fb8e8; }
+
+/* Chart transitions */
+.axis-fade { animation: fade-in 380ms ease both; }
+@keyframes fade-in { from { opacity: 0; } }
+.draw-in .series-line { stroke-dasharray: var(--len); animation: draw 900ms cubic-bezier(.4, 0, .2, 1) both; }
+.draw-in .series-dots, .draw-in .sen-line { animation: fade-in 500ms 450ms ease both; }
+@keyframes draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+
+.swap { animation: swap-in 520ms cubic-bezier(.2, .7, .1, 1) both; }
+@keyframes swap-in { from { opacity: 0; transform: translateY(8px); } }
+
+.legend-hint { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+@media (hover: none) { .legend-hint { display: none; } }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Scroll progress along the bottom edge of the top bar */
+.progress {
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, var(--accent), var(--sen));
+  transform: scaleX(0); transform-origin: 0 50%; pointer-events: none;
+}
 
 .axis text { fill: #71717a; font-size: 11px; font-family: var(--sans); }
 .axis line, .axis path { stroke: #222228; stroke-width: 1; }
@@ -606,7 +645,7 @@ th {
 
 td { padding: 11px 12px; border-bottom: 1px solid var(--line-2); }
 
-tbody tr { cursor: pointer; transition: background 120ms ease; }
+tbody tr { cursor: pointer; transition: background 200ms ease; }
 tbody tr:hover { background: #151519; }
 tbody tr.sel { background: #1b1b21; }
 tbody tr.sel td:first-child { box-shadow: inset 2px 0 0 var(--sen); }
@@ -691,7 +730,7 @@ footer {
 .js-reveal .beats .beat:nth-child(4) { transition-delay: 240ms; }
 
 @media (prefers-reduced-motion: reduce) {
-  .display .line > span, .marquee-track { animation: none; }
+  .display .line > span, .marquee-track, .swap, .axis-fade, .draw-in * { animation: none !important; }
   html { scroll-behavior: auto; }
 }
 
@@ -801,6 +840,7 @@ footer {
     <a href="#sites"><span>(04)</span>Sites</a>
     <a href="#method"><span>(05)</span>Method</a>
   </nav>
+  <span class="progress" aria-hidden="true"></span>
   <div class="topbar-right">
     <span class="chip">NASA POWER · MERRA-2</span>
     <span class="chip muted" id="range-chip">1991–2025</span>
@@ -945,12 +985,13 @@ footer {
         <div class="stats" id="stats"></div>
 
         <div class="chart-wrap">
-          <svg id="chart" viewBox="0 0 760 300" preserveAspectRatio="none" role="img"
-               aria-label="Annual series with fitted Sen's slope"></svg>
+          <svg id="chart" viewBox="0 0 760 300" preserveAspectRatio="none" role="img" tabindex="0"
+               aria-label="Annual series with fitted Sen's slope. Use the left and right arrow keys to read each year."></svg>
         </div>
         <div class="chart-legend">
           <span><i class="swatch line"></i>Annual value</span>
           <span><i class="swatch sen"></i>Sen's slope</span>
+          <span class="legend-hint">Hover the chart, or use ← → to step through years</span>
         </div>
         <p class="reading" id="reading">—</p>
       </div>
@@ -1241,6 +1282,13 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
 
   const $ = (id) => document.getElementById(id);
 
+  // Motion. Set by user actions (pick a site, switch variable) so that resizes
+  // and font loads redraw instantly while real changes animate.
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let animateNext = false;
+  const ease = (x) => 1 - Math.pow(1 - x, 3);
+  const lerp = (a, b, k) => a + (b - a) * k;
+
   // One floating readout, reused by every mark on the page. Marks carry a short
   // aria-label instead of a native <title>, so the custom tip is the only one shown.
   const tip = document.createElement("div");
@@ -1408,7 +1456,7 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
       dot.setAttribute("aria-label", p.site.name);
       attachTip(dot,
         `<b>${p.site.name}</b><br>rain ${fmt(p.x, 1)} % \u00b7 temp ${fmt(p.y, 2)} \u00b0C per decade<br><span class="muted">temp p ${pLabel(p.site.series.t2m.p_value)} \u00b7 ${p.site.series.t2m.survives_fdr ? "survives FDR" : "raw p only"}</span>`);
-      dot.addEventListener("click", () => select(p.site.id));
+      dot.addEventListener("click", () => select(p.site.id, true));
       svg.appendChild(dot);
     }
 
@@ -1589,6 +1637,13 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
     return ticks;
   }
 
+  let chartPrev = null;   // last drawn geometry, so the next site can morph from it
+  let chartRaf = 0;
+  const live = document.createElement("p");   // spoken readout for keyboard users
+  live.className = "sr-only";
+  live.setAttribute("aria-live", "polite");
+  document.body.appendChild(live);
+
   function drawChart(site) {
     const series = site.series[state.variable];
     const svg = $("chart");
@@ -1632,20 +1687,40 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
     }
     svg.appendChild(axis);
 
-    // annual series
-    svg.appendChild(el("path", {
-      d: values.map((v, i) => `${i ? "L" : "M"}${sx(years[i])},${sy(v)}`).join(" "),
-      class: "series-line",
-    }));
+    if (animateNext && !reduceMotion) axis.classList.add("axis-fade");
+
+    // Screen geometry for this site, kept so the next site can morph from it.
+    const pts = values.map((v, i) => [sx(years[i]), sy(v)]);
+    const sen = [sx(x0), sy(senStart), sx(x1), sy(senEnd)];
+    const fitAt = (year) => series.sen_intercept + series.slope_per_year * year;
+    const pathOf = (ps) => ps.map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(" ");
+
+    // residual stick from the hovered year to the trend line (drawn under the data)
+    const resid = el("line", { class: "resid" });
+    const cursor = el("g", { class: "cursor" });
+    const guide = el("line", { class: "guide", y1: pad.t, y2: H - pad.b });
+    cursor.append(guide, resid);
+    svg.appendChild(cursor);
+
+    const line = el("path", { d: pathOf(pts), class: "series-line" });
+    svg.appendChild(line);
 
     const dots = el("g", { class: "series-dots" });
-    values.forEach((v, i) => dots.appendChild(el("circle", { cx: sx(years[i]), cy: sy(v), r: 1.7 })));
+    const dotEls = pts.map((q) => {
+      const c = el("circle", { cx: q[0], cy: q[1], r: 1.9 });
+      dots.appendChild(c);
+      return c;
+    });
     svg.appendChild(dots);
 
-    // Sen's slope
-    svg.appendChild(el("line", {
-      x1: sx(x0), y1: sy(senStart), x2: sx(x1), y2: sy(senEnd), class: "sen-line",
-    }));
+    const senLine = el("line", { x1: sen[0], y1: sen[1], x2: sen[2], y2: sen[3], class: "sen-line" });
+    svg.appendChild(senLine);
+
+    const focusSen = el("circle", { class: "focus-sen", r: 3.5 });
+    const focusDot = el("circle", { class: "focus-dot", r: 5 });
+    const cursorTop = el("g", { class: "cursor" });
+    cursorTop.append(focusSen, focusDot);
+    svg.appendChild(cursorTop);
 
     // axis unit
     const unit = el("text", { x: pad.l, y: 10, class: "axis" });
@@ -1653,6 +1728,95 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
     unit.setAttribute("font-size", "10.5");
     unit.textContent = `${D.variables[state.variable].label} (${units(state.variable)})`;
     svg.appendChild(unit);
+
+    // ---- transition from the previous site
+    cancelAnimationFrame(chartRaf);
+    const from = chartPrev;
+    chartPrev = { pts, sen };
+    if (animateNext && !reduceMotion) {
+      if (from && from.pts.length === pts.length) {
+        const t0 = performance.now(), dur = 700;
+        const step = (now) => {
+          const k = ease(Math.min(1, (now - t0) / dur));
+          const cur = pts.map((q, i) => [lerp(from.pts[i][0], q[0], k), lerp(from.pts[i][1], q[1], k)]);
+          line.setAttribute("d", pathOf(cur));
+          cur.forEach((q, i) => { dotEls[i].setAttribute("cx", q[0]); dotEls[i].setAttribute("cy", q[1]); });
+          ["x1", "y1", "x2", "y2"].forEach((a, j) => senLine.setAttribute(a, lerp(from.sen[j], sen[j], k)));
+          if (k < 1) chartRaf = requestAnimationFrame(step);
+        };
+        step(t0);
+      } else {
+        svg.classList.remove("draw-in");
+        void svg.getBoundingClientRect();
+        line.style.setProperty("--len", line.getTotalLength());
+        svg.classList.add("draw-in");
+      }
+    }
+
+    // ---- reading individual years: pointer, touch and keyboard
+    const unitText = units(state.variable);
+    const digits = state.variable === "precip" ? 0 : 2;
+    let active = -1;
+
+    function show(i) {
+      active = i;
+      const [px, py] = pts[i];
+      const fit = fitAt(years[i]);
+      const fy = sy(fit);
+      guide.setAttribute("x1", px); guide.setAttribute("x2", px);
+      resid.setAttribute("x1", px); resid.setAttribute("x2", px);
+      resid.setAttribute("y1", py); resid.setAttribute("y2", fy);
+      focusDot.setAttribute("cx", px); focusDot.setAttribute("cy", py);
+      focusSen.setAttribute("cx", px); focusSen.setAttribute("cy", fy);
+      cursor.classList.add("on"); cursorTop.classList.add("on");
+      dotEls.forEach((c, j) => c.classList.toggle("dim", j !== i));
+
+      const v = values[i], diff = v - fit;
+      const rel = state.variable === "precip" && fit ? ` (${fmt((diff / fit) * 100, 0)}%)` : "";
+      tip.innerHTML =
+        `<b>${years[i]}</b> · ${v.toFixed(digits)} ${unitText}<br>` +
+        `<span class="muted">trend ${fit.toFixed(digits)} · </span>` +
+        `<span class="${diff >= 0 ? "up" : "down"}">${fmt(diff, digits)} ${unitText}${rel}</span>` +
+        `<span class="muted"> vs trend</span>`;
+      const box = svg.getBoundingClientRect();
+      tip.style.left = `${box.left + (px / W) * box.width}px`;
+      tip.style.top = `${box.top + (Math.min(py, fy) / H) * box.height - 6}px`;
+      tip.classList.add("on");
+      live.textContent = `${years[i]}: ${v.toFixed(digits)} ${unitText}, ${fmt(diff, digits)} versus the trend.`;
+    }
+
+    function hide() {
+      active = -1;
+      cursor.classList.remove("on"); cursorTop.classList.remove("on");
+      dotEls.forEach((c) => c.classList.remove("dim"));
+      tip.classList.remove("on");
+    }
+
+    const nearest = (clientX) => {
+      const box = svg.getBoundingClientRect();
+      const x = ((clientX - box.left) / box.width) * W;
+      let best = 0;
+      for (let i = 1; i < pts.length; i++) if (Math.abs(pts[i][0] - x) < Math.abs(pts[best][0] - x)) best = i;
+      return best;
+    };
+
+    svg.onpointermove = (ev) => { const i = nearest(ev.clientX); if (i !== active) show(i); };
+    svg.onpointerdown = (ev) => show(nearest(ev.clientX));
+    svg.onpointerleave = (ev) => { if (ev.pointerType === "mouse") hide(); };
+    svg.onblur = hide;
+    svg.onfocus = () => { if (active < 0) show(pts.length - 1); };
+    svg.onkeydown = (ev) => {
+      const k = ev.key;
+      let i = active < 0 ? pts.length - 1 : active;
+      if (k === "ArrowLeft") i = Math.max(0, i - 1);
+      else if (k === "ArrowRight") i = Math.min(pts.length - 1, i + 1);
+      else if (k === "Home") i = 0;
+      else if (k === "End") i = pts.length - 1;
+      else if (k === "Escape") { hide(); return; }
+      else return;
+      ev.preventDefault();
+      show(i);
+    };
   }
 
   // ------------------------------------------------------------------- detail
@@ -1673,17 +1837,22 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
     verdict.className = "verdict" + (series.survives_fdr ? " yes" : "");
 
     const rel = relIsMeaningful(state.variable) ? series.rel_pct_per_decade : null;
+    // <span class="n"> marks a number that counts from the previous site's value.
+    const num = (key, v, d, plain) =>
+      `<span class="n" data-key="${key}" data-to="${v}" data-d="${d}"${plain ? " data-plain" : ""}>${plain ? v.toFixed(d) : fmt(v, d)}</span>`;
     $("stats").innerHTML = `
       <div class="stat"><div class="k">Sen's slope</div>
-        <div class="v">${fmt(slope, 2)}<small>${deltaUnit(state.variable)} / decade</small></div></div>
+        <div class="v">${num("slope", slope, 2)}<small>${deltaUnit(state.variable)} / decade</small></div></div>
       <div class="stat"><div class="k">Relative trend</div>
-        <div class="v">${rel === null ? "n/a" : fmt(rel, 1) + "<small>% / decade</small>"}${rel === null ? "<small>ratio scale only</small>" : ""}</div></div>
+        <div class="v">${rel === null ? "n/a" : num("rel", rel, 1) + "<small>% / decade</small>"}${rel === null ? "<small>ratio scale only</small>" : ""}</div></div>
       <div class="stat"><div class="k">Mann–Kendall p</div>
-        <div class="v">${pText}</div></div>
+        <div class="v">${series.p_value < 0.001 ? pText : num("p", series.p_value, 3, true)}</div></div>
       <div class="stat"><div class="k">First → last decade</div>
-        <div class="v">${fmt(series.decade_delta, 1)}<small>${deltaUnit(state.variable)}</small></div></div>`;
+        <div class="v">${num("delta", series.decade_delta, 1)}<small>${deltaUnit(state.variable)}</small></div></div>`;
+    countStats();
 
     drawChart(site);
+    if (animateNext) swap("site-name", "site-meta", "reading", "verdict");
 
     const direction = slope > 0 ? "rising" : "falling";
     const magnitude = Math.abs(slope);
@@ -1692,6 +1861,41 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
     $("reading").textContent = sig
       ? `${site.name} is ${direction} at ${grade}. Under the Mann–Kendall test (p = ${pText}) a change this consistent is unlikely to be chance, and the first decade averaged ${series.first_decade.toFixed(1)} ${unit} against ${series.last_decade.toFixed(1)} ${unit} in the last. ${site.note}`
       : `${site.name} shows no trend that this test separates from chance (p = ${pText}); the fitted slope is ${grade}. ${site.note} Note the difference between "no evidence of a trend" and "evidence of no trend" — 35 years of one modelled grid cell is not enough for the second claim.`;
+  }
+
+  let statPrev = {};
+  let statRaf = 0;
+  function countStats() {
+    cancelAnimationFrame(statRaf);
+    const nodes = [...document.querySelectorAll("#stats .n")];
+    const runs = nodes.map((n) => ({
+      n, to: Number(n.dataset.to), d: Number(n.dataset.d), plain: "plain" in n.dataset,
+      from: statPrev[n.dataset.key],
+    }));
+    statPrev = Object.fromEntries(runs.map((r) => [r.n.dataset.key, r.to]));
+    if (!animateNext || reduceMotion) return;
+    const t0 = performance.now(), dur = 650;
+    const step = (now) => {
+      const k = ease(Math.min(1, (now - t0) / dur));
+      for (const r of runs) {
+        if (r.from === undefined) continue;
+        const v = lerp(r.from, r.to, k);
+        r.n.textContent = r.plain ? v.toFixed(r.d) : fmt(v, r.d);
+      }
+      if (k < 1) statRaf = requestAnimationFrame(step);
+    };
+    step(t0);
+  }
+
+  // Text blocks fade up when the site changes.
+  function swap(...ids) {
+    if (reduceMotion) return;
+    for (const id of ids) {
+      const node = $(id);
+      node.classList.remove("swap");
+      void node.offsetWidth;
+      node.classList.add("swap");
+    }
   }
 
   // -------------------------------------------------------------------- table
@@ -1720,7 +1924,7 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
         <td class="num">${fmt(series.decade_delta, 1)} <span style="color:var(--muted)">${deltaUnit(variable)}</span></td>
         <td class="num">${pLabel(series.p_value)}</td>
         <td><span class="tag${survives ? " yes" : ""}">${survives ? "survives FDR" : sig ? "raw p only" : "not significant"}</span></td>`;
-      tr.addEventListener("click", () => select(site.id));
+      tr.addEventListener("click", () => select(site.id, true));
       $("rows").appendChild(tr);
     }
   }
@@ -1732,16 +1936,32 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
     drawMap();
     drawDetail(site);
     drawTable();
+    animateNext = false;
   }
 
-  function select(id) {
+  function select(id, reveal) {
+    if (id === state.siteId) return;
     state.siteId = id;
+    tip.classList.remove("on");
+    animateNext = true;
     render();
+    // Clicked somewhere far from the chart (scatter, table): glide to it.
+    const card = document.querySelector(".detail-card");
+    if (reveal && card) {
+      const r = card.getBoundingClientRect();
+      if (r.top < 70 || r.bottom > innerHeight) {
+        const y = scrollY + r.top - Math.max(80, (innerHeight - r.height) / 2);
+        if (window.smoothScrollTo) window.smoothScrollTo(y);
+        else scrollTo({ top: y, behavior: reduceMotion ? "auto" : "smooth" });
+      }
+    }
   }
 
   for (const button of document.querySelectorAll("#variable-toggle button")) {
     button.addEventListener("click", () => {
+      if (state.variable === button.dataset.variable) return;
       state.variable = button.dataset.variable;
+      animateNext = true;
       for (const other of document.querySelectorAll("#variable-toggle button")) {
         other.classList.toggle("on", other === button);
       }
@@ -1766,22 +1986,135 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
 
 </script>
 <script>
-/* Scroll reveal. Content is visible by default; the class only hides it once JS runs. */
-(function () {
-  var els = document.querySelectorAll(".reveal");
-  if (!("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  document.documentElement.classList.add("js-reveal");
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) {
-      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+/* Trend Detective — page motion.
+ *
+ * Smooth wheel scrolling, a scroll-progress line, section reveals and the
+ * count-up in the number strip. Everything here is decoration: with reduced
+ * motion, a touch screen, or this file missing, the page works the same.
+ */
+(() => {
+  "use strict";
+
+  const root = document.documentElement;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const finePointer = matchMedia("(pointer: fine)").matches;
+  const bar = document.querySelector(".topbar");
+  const progress = document.querySelector(".progress");
+  const maxScroll = () => root.scrollHeight - innerHeight;
+  const clamp = (y) => Math.max(0, Math.min(maxScroll(), y));
+
+  // ------------------------------------------------------------ smooth scroll
+  // The wheel sets a target; each frame the page eases a fraction of the way
+  // there. Keyboard, scrollbar and touch scrolling stay native.
+  if (!reduce && finePointer) {
+    root.style.scrollBehavior = "auto";
+    let target = scrollY, current = scrollY, running = false, last = 0;
+
+    const frame = (now) => {
+      const dt = last ? Math.min(64, now - last) : 16.7;
+      last = now;
+      current += (target - current) * (1 - Math.pow(1 - 0.12, dt / 16.7));
+      if (Math.abs(target - current) < 0.4) { current = target; running = false; last = 0; }
+      scrollTo(0, current);
+      if (running) requestAnimationFrame(frame);
+    };
+    const start = () => {
+      if (running) return;
+      running = true;
+      current = scrollY;
+      requestAnimationFrame(frame);
+    };
+
+    // Let an inner element scroll first if it can (none today, but cheap to respect).
+    const innerCanScroll = (node, dy) => {
+      for (; node && node !== document.body; node = node.parentElement) {
+        const s = getComputedStyle(node);
+        if (!/(auto|scroll)/.test(s.overflowY) || node.scrollHeight <= node.clientHeight) continue;
+        if (dy > 0 ? node.scrollTop + node.clientHeight < node.scrollHeight - 1 : node.scrollTop > 0) return true;
+      }
+      return false;
+    };
+
+    addEventListener("wheel", (e) => {
+      if (e.ctrlKey || e.defaultPrevented) return;                  // pinch-zoom
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;          // sideways: table scroll
+      if (innerCanScroll(e.target, e.deltaY)) return;
+      const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? innerHeight : 1;
+      e.preventDefault();
+      if (!running) target = scrollY;
+      target = clamp(target + e.deltaY * unit);
+      start();
+    }, { passive: false });
+
+    // Native scrolling (keys, scrollbar) moves the page under us: follow it.
+    addEventListener("scroll", () => { if (!running) target = current = scrollY; }, { passive: true });
+
+    window.smoothScrollTo = (y) => { target = clamp(y); start(); };
+
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest('a[href^="#"]');
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const id = a.getAttribute("href").slice(1);
+      const node = id ? document.getElementById(id) : null;
+      if (id && !node) return;
+      e.preventDefault();
+      window.smoothScrollTo(node ? node.getBoundingClientRect().top + scrollY - 72 : 0);
+      history.replaceState(null, "", id ? `#${id}` : location.pathname);
     });
-  }, { rootMargin: "0px 0px -8% 0px" });
-  els.forEach(function (el) { io.observe(el); });
-  /* Fail open: if the observer never fires (background tab, print), show everything. */
-  setTimeout(function () { els.forEach(function (el) { el.classList.add("in"); }); }, 4000);
-  var bar = document.querySelector(".topbar");
-  addEventListener("scroll", function () { bar.classList.toggle("scrolled", scrollY > 40); }, { passive: true });
+  }
+
+  // ------------------------------------------------- top bar + progress line
+  let ticking = false;
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      if (bar) bar.classList.toggle("scrolled", scrollY > 40);
+      if (progress) progress.style.transform = `scaleX(${maxScroll() > 0 ? scrollY / maxScroll() : 0})`;
+    });
+  };
+  addEventListener("scroll", onScroll, { passive: true });
+  addEventListener("resize", onScroll);
+  onScroll();
+
+  // ------------------------------------------------------- reveal on scroll
+  const reveals = document.querySelectorAll(".reveal");
+  if (!reduce && "IntersectionObserver" in window) {
+    root.classList.add("js-reveal");
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+      }
+    }, { rootMargin: "0px 0px -8% 0px" });
+    reveals.forEach((el) => io.observe(el));
+    // Fail open: if the observer never fires (background tab, print), show everything.
+    setTimeout(() => reveals.forEach((el) => el.classList.add("in")), 4000);
+  }
+
+  // ------------------------------------------------ count-up in number strip
+  const strip = document.querySelector(".audit-strip");
+  if (strip && !reduce && "IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      // Only plain counts ("40", "30 of 80"); the rho sentence stays as written.
+      const cells = [...strip.querySelectorAll(".v")].filter((v) => /^\d+( of \d+)?$/.test(v.textContent.trim()));
+      const finals = cells.map((v) => v.textContent.trim());
+      const t0 = performance.now(), dur = 1400;
+      const step = (now) => {
+        const k = 1 - Math.pow(1 - Math.min(1, (now - t0) / dur), 4);
+        cells.forEach((v, i) => {
+          v.textContent = finals[i].replace(/^\d+/, (n) => String(Math.round(Number(n) * k)));
+        });
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, { threshold: 0.4 });
+    io.observe(strip);
+  }
 })();
+
 </script>
 </body>
 </html>

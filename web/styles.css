@@ -311,6 +311,7 @@ code { font-family: var(--mono); font-size: 0.92em; color: #d4d4d8; }
 }
 
 .marquee-track i { font-style: normal; font-size: 0.45em; color: var(--sen); }
+.marquee:hover .marquee-track { animation-play-state: paused; }
 .marquee-track span:nth-of-type(even) { color: transparent; -webkit-text-stroke: 1px #71717a; }
 
 @keyframes slide {
@@ -391,9 +392,12 @@ main { display: block; }
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
+  transition: border-color 300ms ease;
   border-radius: 6px;
   padding: clamp(16px, 2vw, 28px);
 }
+
+.card:hover { border-color: #2e2e36; }
 
 .split {
   display: grid;
@@ -552,7 +556,42 @@ main { display: block; }
 .stat .v small { font-family: var(--sans); font-size: 11.5px; font-weight: 400; letter-spacing: 0; color: var(--muted); margin-left: 3px; }
 
 .chart-wrap { width: 100%; }
-#chart { width: 100%; height: 260px; display: block; }
+#chart { width: 100%; height: 260px; display: block; cursor: crosshair; outline: none; touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+#chart:focus-visible { box-shadow: 0 0 0 1px var(--line); border-radius: 4px; }
+
+/* Year cursor on the site chart */
+.cursor { opacity: 0; transition: opacity 160ms ease; pointer-events: none; }
+.cursor.on { opacity: 1; }
+.guide { stroke: #3f3f46; stroke-width: 1; stroke-dasharray: 2 3; }
+.resid { stroke: #e4e4e7; stroke-width: 1.5; stroke-opacity: 0.55; }
+.focus-dot { fill: var(--accent); stroke: var(--panel); stroke-width: 2.5; }
+.focus-sen { fill: var(--sen); stroke: var(--panel); stroke-width: 2; }
+.series-dots circle { transition: opacity 160ms ease; }
+.series-dots circle.dim { opacity: 0.35; }
+#tip .up { color: #f0a090; }
+#tip .down { color: #8fb8e8; }
+
+/* Chart transitions */
+.axis-fade { animation: fade-in 380ms ease both; }
+@keyframes fade-in { from { opacity: 0; } }
+.draw-in .series-line { stroke-dasharray: var(--len); animation: draw 900ms cubic-bezier(.4, 0, .2, 1) both; }
+.draw-in .series-dots, .draw-in .sen-line { animation: fade-in 500ms 450ms ease both; }
+@keyframes draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+
+.swap { animation: swap-in 520ms cubic-bezier(.2, .7, .1, 1) both; }
+@keyframes swap-in { from { opacity: 0; transform: translateY(8px); } }
+
+.legend-hint { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+@media (hover: none) { .legend-hint { display: none; } }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Scroll progress along the bottom edge of the top bar */
+.progress {
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, var(--accent), var(--sen));
+  transform: scaleX(0); transform-origin: 0 50%; pointer-events: none;
+}
 
 .axis text { fill: #71717a; font-size: 11px; font-family: var(--sans); }
 .axis line, .axis path { stroke: #222228; stroke-width: 1; }
@@ -594,7 +633,7 @@ th {
 
 td { padding: 11px 12px; border-bottom: 1px solid var(--line-2); }
 
-tbody tr { cursor: pointer; transition: background 120ms ease; }
+tbody tr { cursor: pointer; transition: background 200ms ease; }
 tbody tr:hover { background: #151519; }
 tbody tr.sel { background: #1b1b21; }
 tbody tr.sel td:first-child { box-shadow: inset 2px 0 0 var(--sen); }
@@ -679,7 +718,7 @@ footer {
 .js-reveal .beats .beat:nth-child(4) { transition-delay: 240ms; }
 
 @media (prefers-reduced-motion: reduce) {
-  .display .line > span, .marquee-track { animation: none; }
+  .display .line > span, .marquee-track, .swap, .axis-fade, .draw-in * { animation: none !important; }
   html { scroll-behavior: auto; }
 }
 

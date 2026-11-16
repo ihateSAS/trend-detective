@@ -23,7 +23,7 @@ html = html.replace(
     '<link rel="stylesheet" href="styles.css">',
     "<style>\n" + (WEB / "styles.css").read_text() + "\n</style>",
 )
-for name in ("world.js", "data.js", "app.js"):
+for name in ("world.js", "data.js", "app.js", "motion.js"):
     html = html.replace(f'<script src="{name}"></script>',
                         "<script>\n" + (WEB / name).read_text() + "\n</script>")
 
