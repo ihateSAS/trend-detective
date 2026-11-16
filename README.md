@@ -2,7 +2,7 @@
 
 **Challenge:** Be An Earth System Trend Detective!
 **Event:** NASA Space Apps Challenge 2026 — Universal Event
-**Team:** _(add both names, emails and schools)_
+**Team:** Gabriel Wu (LACES) gabeqwu@gmail.com
 
 ## Summary
 
