@@ -606,3 +606,7 @@ footer > * { max-width: var(--max); margin-left: auto; margin-right: auto; }
 
 /* a site pin is under the pointer (the pins live on a canvas behind the page) */
 .pin-hover, .pin-hover body, .pin-hover .chapter, .pin-hover .chapter * { cursor: pointer; }
+
+/* dragging the planet in the story chapters */
+.globe-grab, .globe-grab body, .globe-grab .chapter, .globe-grab .chapter-body { cursor: grab; }
+.globe-drag, .globe-drag * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }

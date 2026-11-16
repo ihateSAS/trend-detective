@@ -258,14 +258,46 @@ void main(){
   const BUSY = "a, button, input, select, textarea, label, table, svg, .card, .topbar, #stage";
   const free = (e) => !(e.target instanceof Element) || !e.target.closest(BUSY);
   const pinsLive = () => cur.pins > 0.6 && cur.dim < 0.5;
+  // Dragging the planet itself, in the story chapters. Only from empty space (never from text,
+  // buttons or panels) and only with a mouse or pen, so touch scrolling is left alone. The turn
+  // is an offset from where the chapter wants the globe; it eases away when the chapter changes.
+  const off = { lon: 0, lat: 0, dragging: false, moved: false, px: 0, py: 0, releasing: false };
+  const onGlobe = (e) => Math.hypot(e.clientX - cur.x, e.clientY - cur.y) < cur.r;
+  const empty = (e) => e.target instanceof Element && e.target.matches(".chapter, .chapter-body, footer, body, html");
+  let suppressClick = false;
+  addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.pointerType === "touch" || !empty(e) || !onGlobe(e) || cur.dim > 0.5 || cur.explore > 0.5) return;
+    off.dragging = true; off.moved = false; off.releasing = false; off.px = e.clientX; off.py = e.clientY;
+    document.documentElement.classList.add("globe-drag");
+  });
+  addEventListener("pointerup", () => {
+    if (!off.dragging) return;
+    off.dragging = false;
+    suppressClick = off.moved;
+    document.documentElement.classList.remove("globe-drag");
+  });
+  addEventListener("pointercancel", () => { off.dragging = false; document.documentElement.classList.remove("globe-drag"); });
+
   addEventListener("pointermove", (e) => {
+    if (off.dragging) {
+      const dx = e.clientX - off.px, dy = e.clientY - off.py;
+      if (Math.abs(dx) + Math.abs(dy) > 3) off.moved = true;
+      const k = 60 / Math.max(120, cur.r);
+      off.lon = wrap(off.lon - dx * k);
+      off.lat = Math.max(-150, Math.min(150, off.lat + dy * k));
+      off.px = e.clientX; off.py = e.clientY;
+      hover = "";
+      return;
+    }
     if (e.target instanceof Element && e.target.closest("#stage")) return;      // the stage handles its own
     const hit = e.pointerType !== "touch" && free(e) && pinsLive() ? nearest(e.clientX, e.clientY, 20) : null;
     hover = hit ? hit.id : "";
     document.documentElement.classList.toggle("pin-hover", Boolean(hit));
+    document.documentElement.classList.toggle("globe-grab", !hit && e.pointerType !== "touch" && empty(e) && onGlobe(e) && cur.dim < 0.5 && cur.explore < 0.5);
   }, { passive: true });
   addEventListener("click", (e) => {
     if (e.target instanceof Element && e.target.closest("#stage")) return;
+    if (suppressClick) { suppressClick = false; return; }                       // that was the end of a drag
     if (!free(e) || !pinsLive() || String(getSelection()) !== "") return;
     const hit = nearest(e.clientX, e.clientY, 24) || (hover ? { id: hover } : null);
     if (!hit || !window.TD) return;
@@ -300,7 +332,13 @@ void main(){
     const k = reduce ? 1 : 1 - Math.pow(1 - 0.065, dt / 16.7);
     const kFast = reduce ? 1 : 1 - Math.pow(1 - 0.22, dt / 16.7);
 
+    const was = active;
     active = activeSection();
+    if (active !== was && !off.dragging) off.releasing = true;                  // new chapter: give the globe back to the story
+    if (off.releasing) {
+      off.lon += -off.lon * k * 1.4; off.lat += -off.lat * k * 1.4;
+      if (Math.abs(off.lon) + Math.abs(off.lat) < 0.05) { off.lon = off.lat = 0; off.releasing = false; }
+    }
     const narrow = W < 860;
     const cfg = narrow && active.m ? Object.assign({}, active, active.m) : active;
     const unit = Math.min(W, H);
@@ -317,13 +355,14 @@ void main(){
       }
     }
     const explore = cfg.mode === "explore";
-    if (cfg.spin && !reduce && !hover) spinLon += dt * 0.0022 * cfg.spin;   // hold still while a pin is under the pointer
+    if (cfg.spin && !reduce && !hover && !off.dragging) spinLon += dt * 0.0022 * cfg.spin;   // hold still while a pin is under the pointer
     if (explore && !user.dragging && Math.abs(user.vx) > 0.01) { user.lon = wrap(user.lon + user.vx); user.vx *= 0.93; }
-    const tLon = explore ? user.lon : cfg.lon + spinLon;
-    const tLat = explore ? user.lat : cfg.lat;
+    const tLon = explore ? user.lon : cfg.lon + spinLon + off.lon;
+    const tLat = explore ? user.lat : Math.max(-85, Math.min(85, cfg.lat + off.lat));
 
-    cur.lon += wrap(tLon - cur.lon) * (explore && user.dragging ? 1 : k * 1.2);
-    cur.lat += (tLat - cur.lat) * (explore && user.dragging ? 1 : k * 1.2);
+    const held = (explore && user.dragging) || off.dragging;
+    cur.lon += wrap(tLon - cur.lon) * (held ? 1 : k * 1.2);
+    cur.lat += (tLat - cur.lat) * (held ? 1 : k * 1.2);
     cur.r += (tr - cur.r) * k;
     cur.x += (tx - cur.x) * (anchored && Math.abs(tr - cur.r) < 12 ? kFast * 2.2 : k);
     cur.y += (ty - cur.y) * (anchored && Math.abs(tr - cur.r) < 12 ? kFast * 2.2 : k);
