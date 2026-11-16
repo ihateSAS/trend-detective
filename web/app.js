@@ -20,6 +20,14 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // Translation: English lives here as the fallback; i18n.js holds the other languages.
+  const T = (key, en, vars) => (window.I18N ? window.I18N.t(key, en, vars) : en.replace(/\{(\w+)\}/g, (_, k) => vars[k]));
+  const siteName = (site) => T("site." + site.id, site.name);
+  const regionName = (site) => T("region." + site.region, site.region);
+  const siteNote = (site) => T(site.sample === "grid" ? "note.grid" : "note." + site.id, site.note);
+  const verdictShort = (series) => series.survives_fdr ? T("v.fdr", "survives FDR") : significant(series) ? T("v.raw", "raw p only") : T("v.ns", "not significant");
+  const perDec = () => T("u.perDecade", "per decade");
+
   // Motion. Set by user actions (pick a site, switch variable) so that resizes
   // and font loads redraw instantly while real changes animate.
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -90,10 +98,10 @@
       : Math.abs(perDecade(series));
   }
 
-  const units = (variable) => D.variables[variable].units;
-  const shortName = (variable) => D.variables[variable].short;
+  const units = (variable) => T("var." + variable + ".units", D.variables[variable].units);
+  const shortName = (variable) => T("var." + variable + ".short", D.variables[variable].short);
   // Units for a *change*, which is not the same as units for a level.
-  const deltaUnit = (variable) => (variable === "precip" ? "mm" : "\u00b0C");
+  const deltaUnit = (variable) => (variable === "precip" ? T("u.mm", "mm") : "\u00b0C");
   const pLabel = (p) => (p < 0.001 ? "< 0.001" : p.toFixed(3));
 
   // A percentage change is only meaningful on a ratio scale. Celsius has an
@@ -191,9 +199,9 @@
         class: "dot" + (p.site.id === state.siteId ? " sel" : ""),
         "fill-opacity": p.sig ? 0.95 : 0.42,
       });
-      dot.setAttribute("aria-label", p.site.name);
+      dot.setAttribute("aria-label", siteName(p.site));
       attachTip(dot,
-        `<b>${p.site.name}</b><br>rain ${fmt(p.x, 1)} % \u00b7 temp ${fmt(p.y, 2)} \u00b0C per decade<br><span class="muted">temp p ${pLabel(p.site.series.t2m.p_value)} \u00b7 ${p.site.series.t2m.survives_fdr ? "survives FDR" : "raw p only"}</span>`);
+        `<b>${siteName(p.site)}</b><br>${T("tip.rain", "rain")} ${fmt(p.x, 1)} % \u00b7 ${T("tip.temp", "temp")} ${fmt(p.y, 2)} \u00b0C ${perDec()}<br><span class="muted">${T("tip.temp", "temp")} p ${pLabel(p.site.series.t2m.p_value)} \u00b7 ${p.site.series.t2m.survives_fdr ? T("v.fdr", "survives FDR") : T("v.raw", "raw p only")}</span>`);
       dot.addEventListener("click", () => select(p.site.id, true));
       svg.appendChild(dot);
     }
@@ -214,7 +222,7 @@
     for (const p of named0) {
       const cx = sx(p.x), cy = sy(p.y);
       const label = el("text", { class: "dot-label" });
-      label.textContent = p.site.name.split(",")[0];
+      label.textContent = siteName(p.site).split(/[,，]/)[0];
       svg.appendChild(label);
       const w = label.getComputedTextLength() || label.textContent.length * 6;
       const h = 11, g = 9;
@@ -251,14 +259,15 @@
     const fmtRho = (r) => (r === null ? "n/a" : r.toFixed(2));
 
     const yLab = el("text", { x: pad.l, y: 14, class: "annot" });
-    yLab.textContent = "Temperature trend (°C per decade)";
+    yLab.textContent = T("ax.y", "Temperature trend (°C per decade)");
     svg.appendChild(yLab);
     const xLab = el("text", { x: W - pad.r, y: H - 6, class: "annot", "text-anchor": "end" });
-    xLab.textContent = "Precipitation trend (% per decade)";
+    xLab.textContent = T("ax.x", "Precipitation trend (% per decade)");
     svg.appendChild(xLab);
     const annot = el("text", { x: pad.l, y: 33, class: "annot rho" });
     annot.textContent =
-      `Spearman rho — named ${fmtRho(rhoNamed)} (n=${named.length}) · grid ${fmtRho(rhoGrid)} (n=${grid.length}) · all ${fmtRho(rhoAll)}`;
+      T("sc.rho", "Spearman rho — named {a} (n={na}) · grid {b} (n={nb}) · all {c}",
+        { a: fmtRho(rhoNamed), na: named.length, b: fmtRho(rhoGrid), nb: grid.length, c: fmtRho(rhoAll) });
     svg.appendChild(annot);
 
     // The masthead strip has ids but no owner otherwise, so it would sit at "—" forever.
@@ -273,9 +282,10 @@
     setAudit("audit-rho", `named <b>${fmtRho(rhoNamed)}</b> \u00b7 grid <i>${fmtRho(rhoGrid)}</i>`);
 
     $("scatter-note").textContent =
-      `One dot per site. ${named.length} named sites, ${grid.length} systematic grid points, the same ${D.end_year - D.start_year + 1} years. Faded dots: temperature trend not significant at 5%.`;
+      T("sc.note", "One dot per site. {na} named sites, {nb} systematic grid points, the same {y} years. Faded dots: temperature trend not significant at 5%.",
+        { na: named.length, nb: grid.length, y: D.end_year - D.start_year + 1 });
     $("fdr-chip").textContent =
-      `${D.tests_surviving} of ${D.tests_total} trends survive FDR (q = ${D.fdr_q})`;
+      T("sc.chip", "{a} of {b} trends survive FDR (q = {q})", { a: D.tests_surviving, b: D.tests_total, q: D.fdr_q });
 
     // Masthead audit strip — always filled from the live data so it can never
     // go stale or disagree with the scatter.
@@ -288,20 +298,23 @@
     };
     if (strip.rho) {
       strip.sites.textContent = String(D.sites.length);
-      strip.split.textContent = `${named.length} named · ${grid.length} grid`;
+      strip.split.textContent = T("strip.split", "{a} named · {b} grid", { a: named.length, b: grid.length });
       strip.tests.textContent = String(D.tests_total);
-      strip.fdr.textContent = `${D.tests_surviving} of ${D.tests_total}`;
+      strip.fdr.textContent = String(D.tests_surviving);
+      const sigNode = $("audit-sig");
+      if (sigNode) sigNode.textContent = String(D.tests_significant);
       strip.rho.innerHTML =
-        `named <b>${fmtRho(rhoNamed)}</b> (n=${named.length}) → grid <i>${fmtRho(rhoGrid)}</i> (n=${grid.length})`;
+        T("strip.rho", "named <b>{a}</b> (n={na}) → grid <i>{b}</i> (n={nb})", { a: fmtRho(rhoNamed), na: named.length, b: fmtRho(rhoGrid), nb: grid.length });
     }
 
     const collapse = rhoNamed !== null && rhoGrid !== null &&
       Math.abs(rhoNamed) > 0.35 && Math.abs(rhoGrid) < 0.25;
     $("scatter-reading").textContent = collapse
-      ? `We found this relationship in the ${named.length} named sites: rho = ${fmtRho(rhoNamed)}. On the ${grid.length} grid points nobody chose, it is ${fmtRho(rhoGrid)}. That is what selection looks like — the pattern was in our choice of places, not in the planet. We report the audit instead of the headline.`
+      ? T("read.collapse", "We found this relationship in the {na} named sites: rho = {a}. On the {nb} grid points nobody chose, it is {b}. That is what selection looks like — the pattern was in our choice of places, not in the planet. We report the audit instead of the headline.",
+          { na: named.length, a: fmtRho(rhoNamed), nb: grid.length, b: fmtRho(rhoGrid) })
       : Math.abs(rhoAll) > 0.35
-        ? `Across ${n} sites, rainfall trend and temperature trend move in opposite directions (Spearman rho = ${fmtRho(rhoAll)}), and the relationship holds in both subsets — so it is not just where we looked.`
-        : `Across ${n} sites, rainfall trend and temperature trend are not strongly associated (Spearman rho = ${fmtRho(rhoAll)}). Report that null rather than reaching for a story.`;
+        ? T("read.holds", "Across {n} sites, rainfall trend and temperature trend move in opposite directions (Spearman rho = {c}), and the relationship holds in both subsets — so it is not just where we looked.", { n, c: fmtRho(rhoAll) })
+        : T("read.null", "Across {n} sites, rainfall trend and temperature trend are not strongly associated (Spearman rho = {c}). Report that null rather than reaching for a story.", { n, c: fmtRho(rhoAll) });
   }
 
   // ---------------------------------------------------------------------- map
@@ -344,9 +357,9 @@
         class: "site-dot" + (site.id === state.siteId ? " sel" : ""),
         "fill-opacity": significant(series) ? 1 : 0.32,
       });
-      dot.setAttribute("aria-label", site.name);
+      dot.setAttribute("aria-label", siteName(site));
       attachTip(dot,
-        `<b>${site.name}</b><br>${fmt(slope, 2)} ${relIsMeaningful(state.variable) ? "%" : deltaUnit(state.variable)} per decade \u00b7 p ${pLabel(series.p_value)}<br><span class="muted">${series.survives_fdr ? "survives FDR" : significant(series) ? "raw p only" : "not significant"}</span>`);
+        `<b>${siteName(site)}</b><br>${fmt(slope, 2)} ${relIsMeaningful(state.variable) ? "%" : deltaUnit(state.variable)} ${perDec()} \u00b7 p ${pLabel(series.p_value)}<br><span class="muted">${verdictShort(series)}</span>`);
       dot.addEventListener("click", () => select(site.id));
       svg.appendChild(dot);
     }
@@ -354,8 +367,8 @@
     // legend
     const legend = $("legend");
     const unitLabel = relIsMeaningful(state.variable)
-      ? "% per decade"
-      : `${deltaUnit(state.variable)} per decade`;
+      ? `% ${perDec()}`
+      : `${deltaUnit(state.variable)} ${perDec()}`;
     legend.innerHTML = `
       <span>${fmt(-maxAbs, 2)}</span>
       <span class="bar" style="background:linear-gradient(90deg,${colorFor(-maxAbs, maxAbs)},${colorFor(-maxAbs / 2, maxAbs)},${colorFor(0, maxAbs)},${colorFor(maxAbs / 2, maxAbs)},${colorFor(maxAbs, maxAbs)})"></span>
@@ -464,7 +477,7 @@
     const unit = el("text", { x: pad.l, y: 10, class: "axis" });
     unit.setAttribute("fill", "#64798c");
     unit.setAttribute("font-size", "10.5");
-    unit.textContent = `${D.variables[state.variable].label} (${units(state.variable)})`;
+    unit.textContent = `${T("var." + state.variable + ".label", D.variables[state.variable].label)} (${units(state.variable)})`;
     svg.appendChild(unit);
 
     // ---- transition from the previous site
@@ -513,14 +526,14 @@
       const rel = state.variable === "precip" && fit ? ` (${fmt((diff / fit) * 100, 0)}%)` : "";
       tip.innerHTML =
         `<b>${years[i]}</b> · ${v.toFixed(digits)} ${unitText}<br>` +
-        `<span class="muted">trend ${fit.toFixed(digits)} · </span>` +
+        `<span class="muted">${T("tip.trend", "trend")} ${fit.toFixed(digits)} · </span>` +
         `<span class="${diff >= 0 ? "up" : "down"}">${fmt(diff, digits)} ${unitText}${rel}</span>` +
-        `<span class="muted"> vs trend</span>`;
+        `<span class="muted"> ${T("tip.vs", "vs trend")}</span>`;
       const box = svg.getBoundingClientRect();
       tip.style.left = `${box.left + (px / W) * box.width}px`;
       tip.style.top = `${box.top + (Math.min(py, fy) / H) * box.height - 6}px`;
       tip.classList.add("on");
-      live.textContent = `${years[i]}: ${v.toFixed(digits)} ${unitText}, ${fmt(diff, digits)} versus the trend.`;
+      live.textContent = T("live", "{y}: {v} {u}, {d} versus the trend.", { y: years[i], v: v.toFixed(digits), u: unitText, d: fmt(diff, digits) });
     }
 
     function hide() {
@@ -565,13 +578,13 @@
     const sig = significant(series);
     const pText = series.p_value < 0.001 ? "< 0.001" : series.p_value.toFixed(3);
 
-    $("site-name").textContent = site.name;
-    $("site-meta").textContent = `${site.region} · ${site.lat.toFixed(2)}°, ${site.lon.toFixed(2)}° · ${series.n} complete years`;
+    $("site-name").textContent = siteName(site);
+    $("site-meta").textContent = `${regionName(site)} · ${site.lat.toFixed(2)}°, ${site.lon.toFixed(2)}° · ${T("meta.years", "{n} complete years", { n: series.n })}`;
 
     const verdict = $("verdict");
     verdict.textContent = series.survives_fdr
-      ? "significant · survives FDR"
-      : sig ? "significant · raw p only" : "not significant";
+      ? T("vd.fdr", "significant · survives FDR")
+      : sig ? T("vd.raw", "significant · raw p only") : T("v.ns", "not significant");
     verdict.className = "verdict" + (series.survives_fdr ? " yes" : "");
 
     const rel = relIsMeaningful(state.variable) ? series.rel_pct_per_decade : null;
@@ -579,26 +592,30 @@
     const num = (key, v, d, plain) =>
       `<span class="n" data-key="${key}" data-to="${v}" data-d="${d}"${plain ? " data-plain" : ""}>${plain ? v.toFixed(d) : fmt(v, d)}</span>`;
     $("stats").innerHTML = `
-      <div class="stat"><div class="k">Sen's slope</div>
-        <div class="v">${num("slope", slope, 2)}<small>${deltaUnit(state.variable)} / decade</small></div></div>
-      <div class="stat"><div class="k">Relative trend</div>
-        <div class="v">${rel === null ? "n/a" : num("rel", rel, 1) + "<small>% / decade</small>"}${rel === null ? "<small>ratio scale only</small>" : ""}</div></div>
-      <div class="stat"><div class="k">Mann–Kendall p</div>
+      <div class="stat"><div class="k">${T("st.slope", "Sen's slope")}</div>
+        <div class="v">${num("slope", slope, 2)}<small>${deltaUnit(state.variable)} / ${T("u.decade", "decade")}</small></div></div>
+      <div class="stat"><div class="k">${T("st.rel", "Relative trend")}</div>
+        <div class="v">${rel === null ? T("st.na", "n/a") : num("rel", rel, 1) + `<small>% / ${T("u.decade", "decade")}</small>`}${rel === null ? `<small>${T("st.ratio", "ratio scale only")}</small>` : ""}</div></div>
+      <div class="stat"><div class="k">${T("st.p", "Mann–Kendall p")}</div>
         <div class="v">${series.p_value < 0.001 ? pText : num("p", series.p_value, 3, true)}</div></div>
-      <div class="stat"><div class="k">First → last decade</div>
+      <div class="stat"><div class="k">${T("st.delta", "First → last decade")}</div>
         <div class="v">${num("delta", series.decade_delta, 1)}<small>${deltaUnit(state.variable)}</small></div></div>`;
     countStats();
 
     drawChart(site);
     if (animateNext) swap("site-name", "site-meta", "reading", "verdict");
 
-    const direction = slope > 0 ? "rising" : "falling";
+    const direction = slope > 0 ? T("dir.up", "rising") : T("dir.down", "falling");
     const magnitude = Math.abs(slope);
-    const grade = magnitude < 0.05 ? "essentially flat" : `about ${magnitude.toFixed(2)} ${unit} per decade`;
+    const grade = magnitude < 0.05
+      ? T("grade.flat", "essentially flat")
+      : T("grade.about", "about {m} {u} per decade", { m: magnitude.toFixed(2), u: unit });
 
     $("reading").textContent = sig
-      ? `${site.name} is ${direction} at ${grade}. Under the Mann–Kendall test (p = ${pText}) a change this consistent is unlikely to be chance, and the first decade averaged ${series.first_decade.toFixed(1)} ${unit} against ${series.last_decade.toFixed(1)} ${unit} in the last. ${site.note}`
-      : `${site.name} shows no trend that this test separates from chance (p = ${pText}); the fitted slope is ${grade}. ${site.note} Note the difference between "no evidence of a trend" and "evidence of no trend" — 35 years of one modelled grid cell is not enough for the second claim.`;
+      ? T("read.sig", "{name} is {dir} at {grade}. Under the Mann–Kendall test (p = {p}) a change this consistent is unlikely to be chance, and the first decade averaged {a} {u} against {b} {u} in the last. {note}",
+          { name: siteName(site), dir: direction, grade, p: pText, a: series.first_decade.toFixed(1), b: series.last_decade.toFixed(1), u: unit, note: siteNote(site) })
+      : T("read.ns", "{name} shows no trend that this test separates from chance (p = {p}); the fitted slope is {grade}. {note} Note the difference between \"no evidence of a trend\" and \"evidence of no trend\" — 35 years of one modelled grid cell is not enough for the second claim.",
+          { name: siteName(site), p: pText, grade, note: siteNote(site) });
   }
 
   let statPrev = {};
@@ -643,7 +660,9 @@
       (a, b) => comparable(b.series[variable], variable) - comparable(a.series[variable], variable)
     );
     $("table-note").textContent =
-      `${shortName(variable)} · sorted by absolute ${relIsMeaningful(variable) ? "percentage " : ""}change per decade · n = ${D.sites.length} sites`;
+      (relIsMeaningful(variable)
+        ? T("table.notePct", "{v} · sorted by absolute percentage change per decade · n = {n} sites", { v: shortName(variable), n: D.sites.length })
+        : T("table.note", "{v} · sorted by absolute change per decade · n = {n} sites", { v: shortName(variable), n: D.sites.length }));
 
     $("rows").innerHTML = "";
     for (const site of rows) {
@@ -656,12 +675,12 @@
         ? `${fmt(perDecade(series), 1)} <span style="color:var(--muted)">mm (${fmt(series.rel_pct_per_decade, 1)}%)</span>`
         : `${fmt(perDecade(series), 2)} <span style="color:var(--muted)">${deltaUnit(variable)}</span>`;
       tr.innerHTML = `
-        <td>${site.name}</td>
-        <td style="color:var(--muted)">${site.region}</td>
+        <td>${siteName(site)}</td>
+        <td style="color:var(--muted)">${regionName(site)}</td>
         <td class="num">${perDecadeCell}</td>
         <td class="num">${fmt(series.decade_delta, 1)} <span style="color:var(--muted)">${deltaUnit(variable)}</span></td>
         <td class="num">${pLabel(series.p_value)}</td>
-        <td><span class="tag${survives ? " yes" : ""}">${survives ? "survives FDR" : sig ? "raw p only" : "not significant"}</span></td>`;
+        <td><span class="tag${survives ? " yes" : ""}">${verdictShort(series)}</span></td>`;
       tr.addEventListener("click", () => select(site.id, true));
       $("rows").appendChild(tr);
     }
@@ -675,6 +694,35 @@
     drawDetail(site);
     drawTable();
     animateNext = false;
+    document.dispatchEvent(new CustomEvent("td:state", { detail: snapshot() }));
+  }
+
+  // What the globe needs to draw the sites: the same colours and fading as the flat map.
+  function snapshot() {
+    const measure = (s) =>
+      relIsMeaningful(state.variable) ? s.rel_pct_per_decade : perDecade(s);
+    const maxAbs = Math.max(
+      ...D.sites.map((s) => Math.abs(measure(s.series[state.variable]) || 0)),
+      0.0001
+    );
+    return {
+      selected: state.siteId,
+      variable: state.variable,
+      pins: D.sites.map((site) => {
+        const series = site.series[state.variable];
+        return {
+          id: site.id, name: siteName(site), lat: site.lat, lon: site.lon,
+          named: site.sample === "curated",
+          color: brighten(colorFor(measure(series), maxAbs)),
+          sig: significant(series),
+        };
+      }),
+    };
+  }
+  // The map's colours are tuned for a flat dark card; over imagery they need more light.
+  function brighten(rgb) {
+    const m = rgb.match(/\d+/g).map(Number);
+    return `rgb(${m.map((v) => Math.min(255, Math.round(v * 1.25 + 34))).join(",")})`;
   }
 
   function select(id, reveal) {
@@ -708,6 +756,8 @@
   }
 
   $("range-chip").textContent = `${D.start_year}–${D.end_year}`;
+  window.TD = { select: (id) => select(id), snapshot };
+  document.addEventListener("td:lang", () => render());
   render();
 
   // Charts are drawn in real pixels, so redraw when the width changes.

@@ -1,118 +1,159 @@
-# Trend Detective
+<p align="center">
+  <a href="https://www.spaceappschallenge.org/">
+    <img src="video/assets/spaceapps.png" alt="NASA Space Apps Challenge" width="230">
+  </a>
+</p>
 
-**Challenge:** Be An Earth System Trend Detective!
-**Event:** NASA Space Apps Challenge 2026 — Universal Event
+<h1 align="center">
+  <img src="assets/readme/app-icon.svg" alt="" width="42" height="42">
+  Trend Detective
+</h1>
 
-**Team:** aini
+<p align="center">
+  <strong>Climate trends, with the evidence in view.</strong><br>
+  Explore 35 years of NASA temperature and rainfall data, with significance tests and a sampling audit.<br>
+  2026 NASA Space Apps Challenge: <em>Be An Earth System Trend Detective!</em>
+</p>
 
-**Members:** Gabriel Wu (LACES) gabeqwu@gmail.com
-John Xie (University of California, Los Angeles) johnxie@ucla.edu
+<p align="center">
+  <a href="https://ihatesas.github.io/trend-detective/"><img src="assets/readme/button-launch.svg" alt="Explore the app" width="190" height="46"></a>
+  &nbsp;
+  <a href="https://ihatesas.github.io/trend-detective/demo.mp4"><img src="assets/readme/button-play.svg" alt="Watch the 30-second demo" width="190" height="46"></a>
+  &nbsp;
+  <a href="documentation/METHODOLOGY.md"><img src="assets/readme/button-book.svg" alt="Read the methods" width="204" height="46"></a>
+</p>
 
-## Summary
+<p align="center"><sub>Team aini &nbsp; · &nbsp; Universal Event &nbsp; · &nbsp; NASA POWER / MERRA-2 &nbsp; · &nbsp; 1991–2025</sub></p>
 
-We tested 80 site-variable trends in NASA's MERRA-2 reanalysis. **34 look significant; 30 survive a
-false-discovery-rate correction.** Then we audited our own headline: the relationship between
-rainfall and temperature trends was **−0.55 across the 12 sites we chose and −0.05 across 28 grid
-points nobody chose.** The tool exists to make that difference visible.
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="assets/readme/map.svg" alt="" width="24" height="24"><br>
+      <strong>Explore the trends</strong><br>
+      Compare temperature and rainfall across 40 locations.
+    </td>
+    <td width="33%" valign="top">
+      <img src="assets/readme/chart.svg" alt="" width="24" height="24"><br>
+      <strong>Check the evidence</strong><br>
+      Inspect slopes, significance, and false-discovery correction.
+    </td>
+    <td width="33%" valign="top">
+      <img src="assets/readme/audit.svg" alt="" width="24" height="24"><br>
+      <strong>Audit the sample</strong><br>
+      See how the result changes with the locations selected.
+    </td>
+  </tr>
+</table>
 
-That is the project: a significance test, a correction, and a self-audit that killed our best story.
+<details>
+  <summary>Preview the interactive sampling audit</summary>
+  <br>
+  <a href="https://ihatesas.github.io/trend-detective/">
+    <img src="assets/audit.png" alt="Temperature and rainfall trends across 40 sites: 12 named locations and 28 systematic grid points." width="100%">
+  </a>
+</details>
 
-## Project Demonstration
+## The project
 
-_(2-minute video link here — open on the collapse, not on the architecture.)_
+Trend Detective examines 35 years of NASA POWER / MERRA-2 data at 40 locations.
+The interactive map and site charts show what changed, where, by how much, and
+whether the change is statistically significant.
 
-Four beats, in this order:
+The sampling audit compares 12 named locations with 28 land points on a fixed
+20° grid. An apparent relationship between rainfall and temperature trends in the
+named locations weakens in the grid sample. The app makes both results visible
+so readers can inspect the effect of site selection.
 
-1. Dhaka cooled **−0.23 °C per decade** (p = 0.012) while its rainfall rose **+24.7 %** (p < 0.001).
-2. We ran 80 tests. Thirty-four look significant. **Thirty survive Benjamini–Hochberg at q = 0.05.**
-3. Then we checked whether we had picked the right places: named sites give rho = **−0.55**, the
-   systematic grid gives **−0.05**. The pattern was in our sample, not the planet.
-4. So we report the audit, not the headline — and the tool shows both, side by side, on one chart.
+| Coverage | Variables | Tests | After correction |
+| --- | --- | --- | --- |
+| 40 sites · 1991–2025 | Temperature and rainfall | 80 trends · 34 with p < 0.05 | 30 survive FDR at q = 0.05 |
 
-## Project
+## What you can explore
 
-- **Live:** <https://ihatesas.github.io/trend-detective/>
-- **Code:** `ingest.py` (data + statistics), `web/` (the demo), `build.py` (single-file bundle)
+- **Trend map:** compare the direction, size, and significance of changes across locations.
+- **Site histories:** inspect annual values alongside Sen's slope; hover or use the arrow keys to read individual years.
+- **Sampling audit:** compare rainfall–temperature trend correlations for named sites (ρ = −0.55), grid points (ρ = −0.05), and all sites (ρ = −0.19).
+- **Methods and limits:** see how Mann–Kendall tests and Benjamini–Hochberg correction affect the findings.
 
-## Project Details
+The [screen capture](https://ihatesas.github.io/trend-detective/demo-capture.mp4)
+shows the tool in use. The narrated demo and its build instructions are in
+[`video/`](video/).
 
-**The question.** NASA POWER publishes 35 years of modelled climate for any point on Earth. Almost
-everyone who plots it ships a line chart. The challenge asks a sharper question: *is the change
-significant?* We answer with a test, an effect size, a correction — and then we test the answer.
+## Run locally
 
-**Data and method.** Monthly NASA POWER point data (MERRA-2, community AG), 1991–2025, at **40
-sites**: 12 named places (Los Angeles, Mau Forest, Manaus, Nuuk, Niamey, Dhaka, Alice Springs,
-Reykjavik, Athens, Chennai, Anchorage, Cape Town) and **28 points on a fixed 20° grid over land**,
-selected by a land mask before any data was fetched. Twelve complete months make a year; a year
-missing one is dropped. Temperature is the annual mean; precipitation is the annual total.
-
-**Statistics.** Two-sided **Mann–Kendall** (tie-corrected, continuity correction) with **Sen's
-slope** — the median of all pairwise slopes, so one extreme year cannot bend the line. Across 80
-tests at p < 0.05 you expect four false positives before anything is happening, so we apply
-**Benjamini–Hochberg** at q = 0.05: 34 raw significant results become 30.
-
-**The finding we had to give up.** In the 12 named sites, rainfall trend and temperature trend were
-strongly anti-correlated (Spearman −0.55): Dhaka cooled while it wettened, Cape Town cooled while it
-wettened, Athens warmed and stayed dry. It looked like a mechanism. Adding 28 systematically chosen
-grid points moved the correlation to **−0.19 overall and −0.05 within the grid**. The named sites are
-a coastline-and-city sample; they were never a sample of the planet. We report the audit because a
-result that only exists in the places you picked is not a result.
-
-**What survives.** The corrected trend map itself: 30 of 80 site-variable trends survive FDR, and the
-per-site numbers are unchanged —
-
-| Site | Temperature | Rainfall | corr(annual rain, temp) |
-|---|---|---|---|
-| Dhaka | −0.23 °C/dec (p = 0.012) | +24.7 %/dec (p < 0.001) | −0.59 |
-| Cape Town | −0.16 °C/dec (p = 0.005) | +14.9 %/dec (p = 0.001) | −0.38 |
-| Athens | +0.50 °C/dec (p < 0.001) | +5.9 %/dec (p = 0.211, n.s.) | +0.15 |
-| Manaus | +0.27 °C/dec (p = 0.011) | −7.9 %/dec (p = 0.012) | — |
-| Los Angeles | +0.30 °C/dec (p = 0.011) | −4.5 %/dec (p = 0.53, **no trend**) | — |
-
-**Validity check we ran on ourselves.** Relative change is only meaningful on a ratio scale. Celsius
-has an arbitrary zero, so a "% per decade" for temperature is nonsense — Nuuk would read −21 %. The
-demo shows "n/a · ratio scale only" for temperature and keeps percentages for rainfall only.
-
-**Where it fails.**
-
-- **Reanalysis, not thermometers.** MERRA-2 is a model constrained by observations.
-- **The grid is coarse.** 20° spacing is 28 land points; it is systematic, not dense.
-- **Correlating two trends is not causation**, and we no longer have a correlation worth explaining.
-- **35 years** is short enough that a multi-decade cycle can impersonate a trend.
-- **Grid temperature and precipitation are not independent** in a reanalysis: if the surface energy
-  budget ties evaporation to precipitation, part of any relationship is structural.
-- **One null we keep:** Los Angeles rainfall, p = 0.53. No trend, reported as no trend.
-
-**What's next.** Block-bootstrap slope intervals; monthly decomposition to test whether Dhaka's
-cooling is monsoon-concentrated; a 5° grid so the audit has power to detect a real relationship
-rather than only to break a fake one.
-
-## Use of Artificial Intelligence
-
-- **DeepSeek V4.1 Flash Fast** was used under the team's direction and review for the analysis
-  pipeline, `ingest.py`, the web demo and first drafts of this document.
-- Every number in this submission comes from executing that committed code against NASA POWER's public
-  API. No figure was produced by a language model. The statistical choices (Mann–Kendall, Sen's slope,
-  Benjamini–Hochberg) are standard published methods, cited below, selected and reviewed by the team.
-
-## NASA Data
-
-- **NASA POWER monthly point API** (MERRA-2 reanalysis), community AG, parameters `T2M` and
-  `PRECTOTCORR`, 1991–2025 — <https://power.larc.nasa.gov/docs/services/api/temporal/monthly/>
-
-## Space Agency Partner & Other Data
-
-- **Natural Earth 1:110m admin 0 countries** (public domain) — land mask and map outline.
-- **Mann (1945); Kendall (1975); Sen (1968); Benjamini & Hochberg (1995)** — test, slope estimator,
-  multiple-comparison correction.
-
-## Reproduce
+The app is static HTML, CSS, and JavaScript. The analysis uses Python's standard
+library. No API key or package installation is required to explore the included data.
 
 ```bash
-python3 ingest.py        # fetch + compute; writes data/series.json and web/data.js
-cd web && python3 -m http.server 4517
-cd .. && python3 build.py   # optional: one self-contained dist/trenddetective.html
+git clone https://github.com/ihateSAS/trend-detective.git
+cd trend-detective
+python3 -m http.server 4517 --directory web
 ```
 
-Standard library only. No API key, no login, no build step. `NO_GRID=1 python3 ingest.py` reproduces
-the 12-site version, which is how the selection effect was found.
+Open [localhost:4517](http://localhost:4517). The included dataset is ready to use.
+You can also open [`dist/trenddetective.html`](dist/trenddetective.html), the
+self-contained app bundle, directly in a browser.
+
+To recompute the analysis and rebuild the app:
+
+```bash
+python3 ingest.py
+python3 build.py
+```
+
+The ingestion script uses cached NASA POWER responses in `data/raw/` when available.
+It writes annual series and statistics to `data/series.json` and `web/data.js`.
+The build script bundles the web source into `dist/trenddetective.html` and
+`docs/index.html`, which GitHub Pages serves.
+
+`NO_GRID=1 python3 ingest.py` reproduces the original 12-site analysis used in the
+sampling audit. Rerun `python3 ingest.py` without that flag to restore all 40 sites
+before rebuilding.
+
+## Repository guide
+
+| Path | Contents |
+| --- | --- |
+| [`web/`](web/) | App source, interactive charts, map, and bundled data |
+| [`ingest.py`](ingest.py) | Data ingestion, annual aggregation, and trend statistics |
+| [`data/`](data/) | Cached NASA responses and computed annual series |
+| [`build.py`](build.py) | Self-contained HTML bundler |
+| [`docs/`](docs/) | Published app and demonstration videos |
+| [`video/`](video/) | Narrated film source and rendering instructions |
+| [`documentation/`](documentation/) | Detailed methodology, findings, and archived submission notes |
+
+## Interpretation
+
+MERRA-2 is a reanalysis model constrained by observations. The 20° grid is coarse,
+35 years can include multi-decade variability, and a correlation between trends
+does not establish causation. Temperature and precipitation in the reanalysis
+are also not independent. These results describe the sampled locations.
+
+The app keeps null results visible: Los Angeles rainfall has p = 0.53 and is
+reported as no significant trend. Temperature slopes use °C per decade;
+percentage changes are reserved for rainfall because Celsius has an arbitrary zero.
+
+See the [full methodology and site results](documentation/METHODOLOGY.md) for
+aggregation rules, significance tests, limitations, and planned improvements.
+
+## Data and credits
+
+- [NASA POWER monthly point API](https://power.larc.nasa.gov/docs/services/api/temporal/monthly/): MERRA-2, community AG; `T2M` and `PRECTOTCORR`, 1991–2025.
+- [Natural Earth 1:110m country boundaries](https://www.naturalearthdata.com/downloads/110m-cultural-vectors/110m-admin-0-countries/): public domain map outlines and land mask.
+- Statistical methods: Mann (1945), Kendall (1975), Sen (1968), and Benjamini & Hochberg (1995).
+
+## Team
+
+- Daniel Huang
+- Gabriel Wu
+- John Xie
+
+## AI disclosure
+
+DeepSeek V4.1 Flash Fast assisted with the analysis pipeline, `ingest.py`, the web
+demo, and initial writeup under the team's direction and review. Reported numbers
+come from running the committed code against NASA POWER data; statistical methods
+were selected and reviewed by the team.
+
+The narrated film uses AI-generated voice and is visibly labeled. See
+[`video/README.md`](video/README.md) for production details.

@@ -1,2 +1,7 @@
 server.log
 .DS_Store
+
+# film build outputs
+video/*.mp4
+video/audio/v*.mp3
+video/audio/t*.wav

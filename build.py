@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bundle the demo into one self-contained HTML file.
 
-Judges get a link, not a folder. Inlining the four scripts and the stylesheet
+Judges get a link, not a folder. Inlining the scripts, the stylesheet and the globe imagery
 means one file works anywhere: double-clicked locally, or served by GitHub Pages.
 
 Writes two copies of the same bytes:
@@ -23,9 +23,15 @@ html = html.replace(
     '<link rel="stylesheet" href="styles.css">',
     "<style>\n" + (WEB / "styles.css").read_text() + "\n</style>",
 )
-for name in ("world.js", "data.js", "app.js", "motion.js"):
+for name in ("world.js", "data.js", "i18n.js", "app.js", "globe.js", "motion.js"):
     html = html.replace(f'<script src="{name}"></script>',
                         "<script>\n" + (WEB / name).read_text() + "\n</script>")
+
+# The globe's imagery (NASA Blue Marble / Black Marble) travels inside the file too.
+import base64
+for name in ("earth-day.jpg", "earth-night.jpg"):
+    data = base64.b64encode((WEB / name).read_bytes()).decode()
+    html = html.replace(f'"{name}"', f'"data:image/jpeg;base64,{data}"')
 
 targets = [DIST / "trenddetective.html", DOCS / "index.html"]
 for target in targets:

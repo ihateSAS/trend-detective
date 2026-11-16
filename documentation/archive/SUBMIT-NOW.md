@@ -1,3 +1,6 @@
+> Historical draft: this checklist predates the 40-site analysis and contains outdated results
+> and demo requirements. For the current project, see the [README](../../README.md).
+
 # SUBMIT NOW — Trend Detective
 
 Everything in this folder is the submission. Work in this order.

@@ -104,6 +104,27 @@
     setTimeout(() => reveals.forEach((el) => el.classList.add("in")), 4000);
   }
 
+  // ------------------------------------------------- chapters fade in as a group
+  const chapters = document.querySelectorAll(".chapter");
+  if (!reduce && "IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) { e.target.classList.add("seen"); io.unobserve(e.target); }
+      }
+    }, { rootMargin: "0px 0px -22% 0px" });
+    chapters.forEach((el) => io.observe(el));
+    setTimeout(() => chapters.forEach((el) => el.classList.add("seen")), 4000);
+  }
+
+  // ------------------------------------------------------ globe / flat map
+  const viewButtons = document.querySelectorAll("#view-toggle button");
+  viewButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      root.classList.toggle("flat-map", button.dataset.view === "flat");
+      viewButtons.forEach((other) => other.classList.toggle("on", other === button));
+    });
+  });
+
   // ------------------------------------------------ count-up in number strip
   const strip = document.querySelector(".audit-strip");
   if (strip && !reduce && "IntersectionObserver" in window) {
@@ -111,7 +132,7 @@
       if (!entries.some((e) => e.isIntersecting)) return;
       io.disconnect();
       // Only plain counts ("40", "30 of 80"); the rho sentence stays as written.
-      const cells = [...strip.querySelectorAll(".v")].filter((v) => /^\d+( of \d+)?$/.test(v.textContent.trim()));
+      const cells = [...strip.querySelectorAll(".v")].filter((v) => /^\d+$/.test(v.textContent.trim()));
       const finals = cells.map((v) => v.textContent.trim());
       const t0 = performance.now(), dur = 1400;
       const step = (now) => {
