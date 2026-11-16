@@ -153,7 +153,8 @@
 
     for (const p of pts) {
       const dot = el("circle", {
-        cx: sx(p.x), cy: sy(p.y), r: p.site.id === state.siteId ? 7 : 5.5,
+        cx: sx(p.x), cy: sy(p.y),
+        r: p.site.id === state.siteId ? 7 : (p.site.sample === "grid" ? 4.2 : 6),
         fill: p.y > 0 ? "#c9432f" : "#2f6fb5",
         class: "dot" + (p.site.id === state.siteId ? " sel" : ""),
         "fill-opacity": p.sig ? 0.95 : 0.42,
@@ -170,7 +171,17 @@
       }
     }
 
-    const rho = spearman(xs, ys);
+    // The audit: the same correlation, computed three ways. The named sites are
+    // ones we chose; the grid points we did not. If those disagree, the choice
+    // was doing the work, not the climate.
+    const rhoOf = (arr) => spearman(arr.map((p) => p.x), arr.map((p) => p.y));
+    const named = pts.filter((p) => p.site.sample !== "grid");
+    const grid = pts.filter((p) => p.site.sample === "grid");
+    const rhoAll = rhoOf(pts);
+    const rhoNamed = named.length > 2 ? rhoOf(named) : null;
+    const rhoGrid = grid.length > 2 ? rhoOf(grid) : null;
+    const fmtRho = (r) => (r === null ? "n/a" : r.toFixed(2));
+
     const yLab = el("text", { x: pad.l, y: 12, class: "annot" });
     yLab.textContent = "Temperature trend (°C per decade)";
     svg.appendChild(yLab);
@@ -178,17 +189,22 @@
     xLab.textContent = "Precipitation trend (% per decade)";
     svg.appendChild(xLab);
     const annot = el("text", { x: pad.l + 8, y: pad.t + 16, class: "annot" });
-    annot.textContent = `Spearman rho = ${rho.toFixed(2)}  ·  n = ${n} sites`;
+    annot.textContent =
+      `Spearman rho — named ${fmtRho(rhoNamed)} (n=${named.length}) · grid ${fmtRho(rhoGrid)} (n=${grid.length}) · all ${fmtRho(rhoAll)}`;
     svg.appendChild(annot);
 
     $("scatter-note").textContent =
-      `One dot per site. Rainfall and temperature trends from the same ${D.end_year - D.start_year + 1} years. Faded dots: temperature trend not significant at 5%.`;
+      `One dot per site. ${named.length} named sites, ${grid.length} systematic grid points, the same ${D.end_year - D.start_year + 1} years. Faded dots: temperature trend not significant at 5%.`;
     $("fdr-chip").textContent =
       `${D.tests_surviving} of ${D.tests_total} trends survive FDR (q = ${D.fdr_q})`;
-    $("scatter-reading").textContent =
-      n >= 3 && Math.abs(rho) > 0.35
-        ? `Across ${n} sites, rainfall trend and temperature trend move in opposite directions (Spearman rho = ${rho.toFixed(2)}). The two sites that cool significantly are the two that wetten most. That is either a real evaporative signal or an artifact of how a reanalysis closes its surface water and energy budget — and either way it means a single grid cell does not report what a global average reports.`
-        : `Across ${n} sites, rainfall trend and temperature trend are not strongly associated (Spearman rho = ${rho.toFixed(2)}). Report that null rather than reaching for a story.`;
+
+    const collapse = rhoNamed !== null && rhoGrid !== null &&
+      Math.abs(rhoNamed) > 0.35 && Math.abs(rhoGrid) < 0.25;
+    $("scatter-reading").textContent = collapse
+      ? `We found this relationship in the ${named.length} named sites: rho = ${fmtRho(rhoNamed)}. On the ${grid.length} grid points nobody chose, it is ${fmtRho(rhoGrid)}. That is what selection looks like — the pattern was in our choice of places, not in the planet. We report the audit instead of the headline.`
+      : Math.abs(rhoAll) > 0.35
+        ? `Across ${n} sites, rainfall trend and temperature trend move in opposite directions (Spearman rho = ${fmtRho(rhoAll)}), and the relationship holds in both subsets — so it is not just where we looked.`
+        : `Across ${n} sites, rainfall trend and temperature trend are not strongly associated (Spearman rho = ${fmtRho(rhoAll)}). Report that null rather than reaching for a story.`;
   }
 
   // ---------------------------------------------------------------------- map
