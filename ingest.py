@@ -17,6 +17,7 @@ Out:  data/raw/*.json   cached API responses (safe to delete)
 
 import json
 import math
+import os
 import time
 import urllib.error
 import urllib.parse
@@ -35,6 +36,7 @@ BASE = "https://power.larc.nasa.gov/api/temporal/monthly/point"
 FILL = -999.0
 MIN_YEARS = 25          # a trend on fewer years than this is not worth printing
 FDR_Q = 0.05            # Benjamini-Hochberg false-discovery rate across all tests
+GRID_MAX = 36           # cap on systematically sampled points (network-bound)
 
 DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
@@ -199,6 +201,39 @@ def describe(years, values):
 
 
 # ----------------------------------------------------------------------- world
+def load_land_rings():
+    """Full-precision country rings, used only for land/water tests."""
+    src = ROOT.parent / "outbreak" / "data" / "ne_countries.geojson"
+    if not src.exists():
+        return []
+    geo = json.loads(src.read_text())
+    rings = []
+    for feature in geo.get("features", []):
+        geom = feature.get("geometry") or {}
+        if geom.get("type") not in ("Polygon", "MultiPolygon"):
+            continue
+        polys = geom["coordinates"] if geom["type"] == "MultiPolygon" else [geom["coordinates"]]
+        for poly in polys:
+            rings.append(poly[0])  # outer ring only; holes are noise at this scale
+    return rings
+
+
+def point_in_ring(x, y, ring):
+    inside = False
+    n = len(ring)
+    for i in range(n):
+        x1, y1 = ring[i]
+        x2, y2 = ring[(i + 1) % n]
+        if (y1 > y) != (y2 > y):
+            if x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+                inside = not inside
+    return inside
+
+
+def on_land(rings, lon, lat):
+    return any(point_in_ring(lon, lat, ring) for ring in rings)
+
+
 def build_world():
     """A low-resolution land outline for the map, from Natural Earth."""
     src = ROOT.parent / "outbreak" / "data" / "ne_countries.geojson"
@@ -265,10 +300,56 @@ def main():
 
         sites.append({
             "id": site["id"], "name": site["name"], "lat": site["lat"], "lon": site["lon"],
-            "region": site["region"], "note": site["note"], "series": series,
+            "region": site["region"], "note": site["note"], "sample": "curated",
+            "series": series,
         })
         got = ", ".join(f"{k} n={v['n']} p={v['p_value']:.3f}" for k, v in series.items())
         print(f"  ok {site['id']}: {got}")
+
+    # ------------------------------------------------ systematic global sample
+    # Twelve named sites are a story, not a sample. Add a fixed grid over land
+    # so the pattern can be checked against places nobody chose in advance.
+    if os.environ.get("NO_GRID") != "1":
+        rings = load_land_rings()
+        added = 0
+        print("  grid sample over land (20 degree spacing)")
+        for lat in range(-60, 61, 20):
+            if added >= GRID_MAX:
+                break
+            for lon in range(-180, 180, 20):
+                if added >= GRID_MAX:
+                    break
+                if not rings or not on_land(rings, lon, lat):
+                    continue
+                if any(abs(lat - s["lat"]) < 8 and abs(lon - s["lon"]) < 8 for s in sites):
+                    continue
+                site = {
+                    "id": f"grid_{lat}_{lon}",
+                    "name": f"{abs(lat):.0f}\u00b0{'N' if lat >= 0 else 'S'} {abs(lon):.0f}\u00b0{'E' if lon >= 0 else 'W'}",
+                    "lat": float(lat), "lon": float(lon),
+                    "region": "Systematic grid",
+                    "note": "A grid point, not a chosen place: it was selected before any data was seen.",
+                }
+                payload = fetch(site, params)
+                if not payload:
+                    continue
+                monthly = payload.get("properties", {}).get("parameter", {})
+                series = {}
+                for key, spec in VARIABLES.items():
+                    values = monthly.get(spec["param"])
+                    if not values:
+                        continue
+                    pairs = annual_series(values, spec["mode"])
+                    if len(pairs) < MIN_YEARS:
+                        continue
+                    series[key] = describe([y for y, _ in pairs], [v for _, v in pairs])
+                if len(series) < 2:
+                    continue
+                site["sample"] = "grid"
+                site["series"] = series
+                sites.append(site)
+                added += 1
+                print(f"    + {site['name']}  ({added}/{GRID_MAX})")
 
     build_world()
 

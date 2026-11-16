@@ -162,9 +162,12 @@
         `${p.site.name}: rain ${fmt(p.x, 1)}%/dec, temp ${fmt(p.y, 2)} C/dec`;
       dot.addEventListener("click", () => select(p.site.id));
       svg.appendChild(dot);
-      const label = el("text", { x: sx(p.x) + 8, y: sy(p.y) - 7, class: "dot-label" });
-      label.textContent = p.site.name.split(",")[0];
-      svg.appendChild(label);
+      // Label the named sites only; grid points would turn this into a word cloud.
+      if (p.site.sample !== "grid") {
+        const label = el("text", { x: sx(p.x) + 8, y: sy(p.y) - 7, class: "dot-label" });
+        label.textContent = p.site.name.split(",")[0];
+        svg.appendChild(label);
+      }
     }
 
     const rho = spearman(xs, ys);
