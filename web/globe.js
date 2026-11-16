@@ -181,6 +181,7 @@ void main(){
   const user = { lon: 20, lat: 15, dragging: false, moved: false, px: 0, py: 0, vx: 0 };
   let pins = [], selected = "", hover = "";
   let projected = [];
+  const lifts = {};
 
   const activeSection = () => {
     const line = H * 0.55;
@@ -252,6 +253,30 @@ void main(){
     });
   }
 
+  // Outside the explorer the pins sit behind the page, so the page listens for them:
+  // hover names the place, a click opens it in the explorer.
+  const BUSY = "a, button, input, select, textarea, label, table, svg, .card, .topbar, #stage";
+  const free = (e) => !(e.target instanceof Element) || !e.target.closest(BUSY);
+  const pinsLive = () => cur.pins > 0.6 && cur.dim < 0.5;
+  addEventListener("pointermove", (e) => {
+    if (e.target instanceof Element && e.target.closest("#stage")) return;      // the stage handles its own
+    const hit = e.pointerType !== "touch" && free(e) && pinsLive() ? nearest(e.clientX, e.clientY, 20) : null;
+    hover = hit ? hit.id : "";
+    document.documentElement.classList.toggle("pin-hover", Boolean(hit));
+  }, { passive: true });
+  addEventListener("click", (e) => {
+    if (e.target instanceof Element && e.target.closest("#stage")) return;
+    if (!free(e) || !pinsLive() || String(getSelection()) !== "") return;
+    const hit = nearest(e.clientX, e.clientY, 24) || (hover ? { id: hover } : null);
+    if (!hit || !window.TD) return;
+    window.TD.select(hit.id);
+    const dest = document.getElementById("map-section");
+    if (dest) {
+      const y = dest.getBoundingClientRect().top + scrollY;
+      if (window.smoothScrollTo) window.smoothScrollTo(y); else scrollTo({ top: y, behavior: reduce ? "auto" : "smooth" });
+    }
+  });
+
   // app.js tells us what the sites look like right now.
   document.addEventListener("td:state", (e) => {
     const d = e.detail;
@@ -292,7 +317,7 @@ void main(){
       }
     }
     const explore = cfg.mode === "explore";
-    if (cfg.spin && !reduce) spinLon += dt * 0.0022 * cfg.spin;
+    if (cfg.spin && !reduce && !hover) spinLon += dt * 0.0022 * cfg.spin;   // hold still while a pin is under the pointer
     if (explore && !user.dragging && Math.abs(user.vx) > 0.01) { user.lon = wrap(user.lon + user.vx); user.vx *= 0.93; }
     const tLon = explore ? user.lon : cfg.lon + spinLon;
     const tLat = explore ? user.lat : cfg.lat;
@@ -335,45 +360,60 @@ void main(){
     const alphaAll = cur.pins * (1 - cur.dim * 0.9);
     let labelPin = null;
     if (alphaAll > 0.01) {
-      const pulse = (now / 1600) % 1;
+      const scale = Math.max(0.8, Math.min(1.45, cur.r / 340));
+      const draw = [];
       for (const p of pins) {
         const phi = p.lat * RAD, lam = p.lon * RAD;
         const ex = Math.cos(phi) * Math.sin(lam), ey = Math.sin(phi), ez = Math.cos(phi) * Math.cos(lam);
         const vx = V[0] * ex + V[1] * ey + V[2] * ez;
         const vy = V[3] * ex + V[4] * ey + V[5] * ez;
         const vz = V[6] * ex + V[7] * ey + V[8] * ez;
-        const sx = cur.x + cur.r * vx, sy = cur.y - cur.r * vy;
-        projected.push({ id: p.id, x: sx, y: sy, z: vz, name: p.name });
         if (vz < 0.02) continue;
-        const limb = Math.min(1, vz / 0.25);
-        const isFocus = cfg.focus && p.id === cfg.focus;
+        const sx = cur.x + cur.r * vx, sy = cur.y - cur.r * vy;
+        const isFocus = Boolean(cfg.focus) && p.id === cfg.focus;
         const isSel = cur.explore > 0.5 && p.id === selected;
-        const isHover = cur.explore > 0.5 && p.id === hover;
-        // Story chapters: chosen sites coral, grid points white. Explorer: the trend colour.
-        const story = p.named ? "255,107,74" : "240,244,250";
+        const isHover = p.id === hover;
+        // A pin rises a little when it is the subject: hovered, selected, or the chapter's focus.
+        const want = isHover ? 1 : isSel || (isFocus && cur.focus > 0.5) ? 0.7 : 0;
+        const lift = lifts[p.id] = (lifts[p.id] || 0) + (want - (lifts[p.id] || 0)) * kFast;
+        const R = (p.named ? 7 : 5) * scale * (1 + 0.42 * lift);      // head radius
+        const h = R * 3.05;                                           // tip to top of head
+        const limb = Math.min(1, vz / 0.25);
         let a = alphaAll * limb;
-        if (cur.focus > 0.02 && !isFocus) a *= 1 - 0.78 * cur.focus;
-        const scale = Math.max(0.7, Math.min(1.5, cur.r / 330));
-        const rad = (p.named ? 4.6 : 3.2) * scale * (isSel || isHover ? 1.5 : 1);
-        pctx.globalAlpha = a * (cur.explore > 0.5 ? (p.sig ? 1 : 0.55) : 1);
-        pctx.fillStyle = cur.explore > 0.5 ? p.color : `rgb(${story})`;
-        pctx.beginPath(); pctx.arc(sx, sy, rad, 0, 6.2832); pctx.fill();
-        pctx.lineWidth = 1.2;
-        pctx.strokeStyle = "rgba(4,6,11,.85)";
+        if (cur.focus > 0.02 && !isFocus) a *= 1 - 0.7 * cur.focus;
+        projected.push({ id: p.id, x: sx, y: sy - h + R, z: vz, name: p.name });
+        draw.push({ p, sx, sy, R, h, a, lift, isSel, isHover, isFocus });
+      }
+      draw.sort((m, n) => m.sy - n.sy);                               // nearer the bottom of the screen draws on top
+      for (const d of draw) {
+        const { p, sx, sy, R, h } = d;
+        const top = sy - h, cy = top + R;
+        const explore = cur.explore > 0.5;
+        const fill = explore ? p.color : (p.named ? "rgb(255,107,74)" : "rgb(244,246,251)");
+        const a = d.a * (explore && !p.sig && !d.isSel && !d.isHover ? 0.6 : 1);
+        // shadow where the pin touches the ground
+        pctx.globalAlpha = a * 0.5;
+        pctx.fillStyle = "#04060b";
+        pctx.beginPath(); pctx.ellipse(sx, sy + 1, R * 0.62, R * 0.24, 0, 0, 6.2832); pctx.fill();
+        // the pin: a round head tapering to a point on the site
+        pctx.globalAlpha = a;
+        pctx.beginPath();
+        pctx.moveTo(sx, sy);
+        pctx.bezierCurveTo(sx - R * 0.42, sy - h * 0.40, sx - R, cy + R * 0.95, sx - R, cy);
+        pctx.arc(sx, cy, R, Math.PI, 0);
+        pctx.bezierCurveTo(sx + R, cy + R * 0.95, sx + R * 0.42, sy - h * 0.40, sx, sy);
+        pctx.closePath();
+        pctx.fillStyle = fill;
+        pctx.fill();
+        pctx.lineWidth = d.isSel || d.isHover ? 2 : 1.3;
+        pctx.strokeStyle = d.isSel || d.isHover ? "#ffffff" : "rgba(4,6,11,.8)";
         pctx.stroke();
-        if (p.named || isSel || isHover) {
-          pctx.globalAlpha = a * (isSel || isHover ? 1 : 0.6);
-          pctx.strokeStyle = isSel || isHover ? "#fff" : `rgb(${story})`;
-          pctx.lineWidth = isSel ? 1.6 : 1;
-          pctx.beginPath(); pctx.arc(sx, sy, rad + 4.5 * scale, 0, 6.2832); pctx.stroke();
+        // the eye of the pin
+        pctx.fillStyle = p.named || explore ? "rgba(255,255,255,.95)" : "rgba(4,6,11,.78)";
+        pctx.beginPath(); pctx.arc(sx, cy, R * 0.36, 0, 6.2832); pctx.fill();
+        if ((d.isFocus && cur.focus > 0.5) || d.isHover || (d.isSel && !hover)) {
+          labelPin = { x: sx + R, y: top, name: p.name, lat: p.lat, lon: p.lon, a: d.a };
         }
-        if (isFocus && !reduce) {
-          pctx.globalAlpha = a * (1 - pulse) * cur.focus;
-          pctx.strokeStyle = "rgb(255,107,74)";
-          pctx.lineWidth = 1.5;
-          pctx.beginPath(); pctx.arc(sx, sy, rad + 6 + pulse * 46, 0, 6.2832); pctx.stroke();
-        }
-        if ((isFocus && cur.focus > 0.5) || isHover || (isSel && !hover)) labelPin = { x: sx, y: sy, name: p.name, lat: p.lat, lon: p.lon, a };
       }
       pctx.globalAlpha = 1;
     }
@@ -382,7 +422,7 @@ void main(){
         const ns = labelPin.lat >= 0 ? "N" : "S", ew = labelPin.lon >= 0 ? "E" : "W";
         const text = `${labelPin.name} · ${Math.abs(labelPin.lat).toFixed(1)}°${ns} ${Math.abs(labelPin.lon).toFixed(1)}°${ew}`;
         if (label.textContent !== text) label.textContent = text;
-        label.style.transform = `translate(${Math.round(labelPin.x + 16)}px, ${Math.round(labelPin.y - 30)}px)`;
+        label.style.transform = `translate(${Math.round(labelPin.x + 10)}px, ${Math.round(labelPin.y - 14)}px)`;
         label.classList.add("on");
       } else label.classList.remove("on");
     }
@@ -391,5 +431,5 @@ void main(){
   requestAnimationFrame(frame);
 
   // For the film and for tests: put the globe somewhere exactly.
-  window.GLOBE = { cur, user };
+  window.GLOBE = { cur, user, get projected() { return projected; } };
 })();
