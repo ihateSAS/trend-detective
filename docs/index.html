@@ -70,10 +70,10 @@ header.top {
 .brand { display: flex; gap: 16px; align-items: center; min-width: 0; }
 
 .brand-mark {
-  width: 68px;
-  height: 68px;
+  width: 62px;
+  height: 62px;
   flex: 0 0 auto;
-  filter: drop-shadow(0 2px 10px rgba(91,200,224,0.25));
+  filter: drop-shadow(0 3px 12px rgba(91,200,224,0.28));
 }
 
 .eyebrow {
@@ -220,9 +220,38 @@ main {
 .dot-label { font-size: 9.5px; fill: #8ba0b4; pointer-events: none; }
 .zero-line { stroke: #26384a; stroke-width: 1; stroke-dasharray: 3 3; }
 .fit-line { stroke: #ffd166; stroke-width: 1.6; stroke-opacity: 0.75; }
-.dot { cursor: pointer; stroke: #060b12; stroke-width: 0.8; transition: fill-opacity 120ms ease; }
-.dot:hover { fill-opacity: 1 !important; }
+.dot { cursor: pointer; stroke: #060b12; stroke-width: 0.8; transition: fill-opacity 120ms ease, stroke-width 120ms ease; }
 .dot.sel { stroke: #eaf6ff; stroke-width: 1.6; }
+
+/* Hover isolates one dot and fades the rest: the chart reads like a spotlight. */
+#scatter:hover .dot { fill-opacity: 0.2; }
+#scatter .dot:hover { fill-opacity: 1; stroke: #eaf6ff; stroke-width: 2; }
+#map:hover .site-dot { fill-opacity: 0.25; }
+#map .site-dot:hover { fill-opacity: 1; stroke: #eaf6ff; stroke-width: 1.2; }
+
+/* Floating readout, positioned from the pointer. */
+#tip {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -135%);
+  transition: opacity 90ms ease;
+  background: rgba(9, 19, 29, 0.97);
+  border: 1px solid #24384c;
+  border-radius: 10px;
+  padding: 8px 11px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #dbe9f4;
+  box-shadow: 0 16px 34px -16px #000;
+  max-width: 250px;
+  white-space: nowrap;
+}
+
+#tip.on { opacity: 1; }
+#tip b { color: #fff; font-weight: 650; }
+#tip .muted { color: #7f97ab; }
 .annot { font-size: 11px; fill: #9db2c6; }
 
 .card-head {
@@ -480,13 +509,15 @@ footer code { color: #cfe0ee; }
   .head-right { align-items: flex-start; }
   .source { justify-content: flex-start; }
   .official-logo { align-items: flex-start; }
-  .official-logo img { width: 180px; }
+  .official-logo img { width: 132px; opacity: 0.8; }
+  .brand { align-items: flex-start; gap: 12px; }
+  .eyebrow { font-size: 9.5px; letter-spacing: 0.1em; line-height: 1.5; }
   footer { padding: 14px 18px 36px; }
   .foot-grid { grid-template-columns: 1fr; gap: 18px; }
   .stats { grid-template-columns: repeat(2, 1fr); }
   #chart { height: 220px; }
-  h1 { font-size: 27px; }
-  .brand-mark { width: 54px; height: 54px; }
+  h1 { font-size: 29px; letter-spacing: -0.025em; }
+  .brand-mark { width: 46px; height: 46px; }
 }
 
 </style>
@@ -505,23 +536,16 @@ footer code { color: #cfe0ee; }
         </linearGradient>
         <clipPath id="lens"><circle cx="27" cy="27" r="14.6"/></clipPath>
       </defs>
-      <circle cx="27" cy="27" r="14.6" fill="#0b1420"/>
+      <line x1="38" y1="38" x2="53" y2="53" stroke="url(#ring)" stroke-width="7.5" stroke-linecap="round"/>
+      <circle cx="27" cy="27" r="15" fill="#0a1220"/>
       <g clip-path="url(#lens)">
-        <circle cx="19.5" cy="34" r="3"   fill="#2f6fb5"/>
-        <circle cx="25"   cy="30.5" r="2.4" fill="#2f6fb5"/>
-        <circle cx="21.5" cy="27" r="2"   fill="#2f6fb5" fill-opacity="0.7"/>
-        <circle cx="27.5" cy="34.5" r="1.8" fill="#2f6fb5" fill-opacity="0.55"/>
-        <circle cx="30"   cy="24" r="2.3" fill="#c9432f"/>
-        <circle cx="34"   cy="20" r="2.8" fill="#c9432f"/>
-        <circle cx="35.5" cy="26.5" r="1.8" fill="#c9432f" fill-opacity="0.65"/>
-        <circle cx="26"   cy="18.5" r="1.7" fill="#c9432f" fill-opacity="0.6"/>
-        <line x1="15.5" y1="39" x2="39.5" y2="13.5" stroke="#ffd166" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="13" y1="37" x2="42" y2="16" stroke="#ffd166" stroke-width="3.4" stroke-linecap="round"/>
+        <circle cx="19" cy="34" r="3.4" fill="#2f6fb5"/>
+        <circle cx="30" cy="29" r="2.5" fill="#2f6fb5" fill-opacity="0.85"/>
+        <circle cx="35" cy="20" r="3.6" fill="#c9432f"/>
       </g>
-      <circle cx="27" cy="27" r="17" fill="none" stroke="url(#ring)" stroke-width="3.6"/>
-      <line x1="40" y1="40" x2="54.5" y2="54.5" stroke="url(#ring)" stroke-width="6.4" stroke-linecap="round"/>
-      <path d="M51 8l1.7 4 4 1.7-4 1.7-1.7 4-1.7-4-4-1.7 4-1.7z" fill="#5bc8e0"/>
-      <circle cx="10" cy="9" r="1.3" fill="#8095a8"/>
-      <circle cx="56" cy="30" r="1.1" fill="#8095a8"/>
+      <circle cx="27" cy="27" r="15" fill="none" stroke="url(#ring)" stroke-width="4.6"/>
+      <circle cx="55" cy="10" r="2" fill="#5bc8e0" fill-opacity="0.75"/>
     </svg>
     <div class="titles">
       <p class="eyebrow">NASA Space Apps Challenge 2026 · <em>The Next Frontier</em> · <em>Be An Earth System Trend Detective!</em></p>
@@ -698,6 +722,28 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
 
   const $ = (id) => document.getElementById(id);
 
+  // One floating readout, reused by every mark on the page. Marks carry a short
+  // aria-label instead of a native <title>, so the custom tip is the only one shown.
+  const tip = document.createElement("div");
+  tip.id = "tip";
+  document.body.appendChild(tip);
+
+  const moveTip = (ev) => {
+    tip.style.left = `${ev.clientX}px`;
+    tip.style.top = `${ev.clientY}px`;
+  };
+
+  function attachTip(node, html) {
+    node.addEventListener("mouseenter", (ev) => {
+      tip.innerHTML = html;
+      tip.classList.add("on");
+      moveTip(ev);
+    });
+    node.addEventListener("mousemove", moveTip);
+    node.addEventListener("mouseleave", () => tip.classList.remove("on"));
+    node.addEventListener("click", () => tip.classList.remove("on"));
+  }
+
   // ------------------------------------------------------------------ helpers
   function fmt(value, digits) {
     if (value === null || value === undefined) return "—";
@@ -837,8 +883,9 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
         class: "dot" + (p.site.id === state.siteId ? " sel" : ""),
         "fill-opacity": p.sig ? 0.95 : 0.42,
       });
-      dot.appendChild(el("title")).textContent =
-        `${p.site.name}: rain ${fmt(p.x, 1)}%/dec, temp ${fmt(p.y, 2)} C/dec`;
+      dot.setAttribute("aria-label", p.site.name);
+      attachTip(dot,
+        `<b>${p.site.name}</b><br>rain ${fmt(p.x, 1)} % \u00b7 temp ${fmt(p.y, 2)} \u00b0C per decade<br><span class="muted">temp p ${pLabel(p.site.series.t2m.p_value)} \u00b7 ${p.site.series.t2m.survives_fdr ? "survives FDR" : "raw p only"}</span>`);
       dot.addEventListener("click", () => select(p.site.id));
       svg.appendChild(dot);
       // Label the named sites only; grid points would turn this into a word cloud.
@@ -954,8 +1001,9 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
         class: "site-dot" + (site.id === state.siteId ? " sel" : ""),
         "fill-opacity": significant(series) ? 1 : 0.32,
       });
-      dot.appendChild(el("title")).textContent =
-        `${site.name} — ${fmt(slope, 2)} ${relIsMeaningful(state.variable) ? "%" : deltaUnit(state.variable)} / decade, p=${pLabel(series.p_value)}`;
+      dot.setAttribute("aria-label", site.name);
+      attachTip(dot,
+        `<b>${site.name}</b><br>${fmt(slope, 2)} ${relIsMeaningful(state.variable) ? "%" : deltaUnit(state.variable)} per decade \u00b7 p ${pLabel(series.p_value)}<br><span class="muted">${series.survives_fdr ? "survives FDR" : significant(series) ? "raw p only" : "not significant"}</span>`);
       dot.addEventListener("click", () => select(site.id));
       svg.appendChild(dot);
     }

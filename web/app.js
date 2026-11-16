@@ -20,6 +20,28 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // One floating readout, reused by every mark on the page. Marks carry a short
+  // aria-label instead of a native <title>, so the custom tip is the only one shown.
+  const tip = document.createElement("div");
+  tip.id = "tip";
+  document.body.appendChild(tip);
+
+  const moveTip = (ev) => {
+    tip.style.left = `${ev.clientX}px`;
+    tip.style.top = `${ev.clientY}px`;
+  };
+
+  function attachTip(node, html) {
+    node.addEventListener("mouseenter", (ev) => {
+      tip.innerHTML = html;
+      tip.classList.add("on");
+      moveTip(ev);
+    });
+    node.addEventListener("mousemove", moveTip);
+    node.addEventListener("mouseleave", () => tip.classList.remove("on"));
+    node.addEventListener("click", () => tip.classList.remove("on"));
+  }
+
   // ------------------------------------------------------------------ helpers
   function fmt(value, digits) {
     if (value === null || value === undefined) return "—";
@@ -159,8 +181,9 @@
         class: "dot" + (p.site.id === state.siteId ? " sel" : ""),
         "fill-opacity": p.sig ? 0.95 : 0.42,
       });
-      dot.appendChild(el("title")).textContent =
-        `${p.site.name}: rain ${fmt(p.x, 1)}%/dec, temp ${fmt(p.y, 2)} C/dec`;
+      dot.setAttribute("aria-label", p.site.name);
+      attachTip(dot,
+        `<b>${p.site.name}</b><br>rain ${fmt(p.x, 1)} % \u00b7 temp ${fmt(p.y, 2)} \u00b0C per decade<br><span class="muted">temp p ${pLabel(p.site.series.t2m.p_value)} \u00b7 ${p.site.series.t2m.survives_fdr ? "survives FDR" : "raw p only"}</span>`);
       dot.addEventListener("click", () => select(p.site.id));
       svg.appendChild(dot);
       // Label the named sites only; grid points would turn this into a word cloud.
@@ -276,8 +299,9 @@
         class: "site-dot" + (site.id === state.siteId ? " sel" : ""),
         "fill-opacity": significant(series) ? 1 : 0.32,
       });
-      dot.appendChild(el("title")).textContent =
-        `${site.name} — ${fmt(slope, 2)} ${relIsMeaningful(state.variable) ? "%" : deltaUnit(state.variable)} / decade, p=${pLabel(series.p_value)}`;
+      dot.setAttribute("aria-label", site.name);
+      attachTip(dot,
+        `<b>${site.name}</b><br>${fmt(slope, 2)} ${relIsMeaningful(state.variable) ? "%" : deltaUnit(state.variable)} per decade \u00b7 p ${pLabel(series.p_value)}<br><span class="muted">${series.survives_fdr ? "survives FDR" : significant(series) ? "raw p only" : "not significant"}</span>`);
       dot.addEventListener("click", () => select(site.id));
       svg.appendChild(dot);
     }

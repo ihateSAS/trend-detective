@@ -61,10 +61,10 @@ header.top {
 .brand { display: flex; gap: 16px; align-items: center; min-width: 0; }
 
 .brand-mark {
-  width: 68px;
-  height: 68px;
+  width: 62px;
+  height: 62px;
   flex: 0 0 auto;
-  filter: drop-shadow(0 2px 10px rgba(91,200,224,0.25));
+  filter: drop-shadow(0 3px 12px rgba(91,200,224,0.28));
 }
 
 .eyebrow {
@@ -211,9 +211,38 @@ main {
 .dot-label { font-size: 9.5px; fill: #8ba0b4; pointer-events: none; }
 .zero-line { stroke: #26384a; stroke-width: 1; stroke-dasharray: 3 3; }
 .fit-line { stroke: #ffd166; stroke-width: 1.6; stroke-opacity: 0.75; }
-.dot { cursor: pointer; stroke: #060b12; stroke-width: 0.8; transition: fill-opacity 120ms ease; }
-.dot:hover { fill-opacity: 1 !important; }
+.dot { cursor: pointer; stroke: #060b12; stroke-width: 0.8; transition: fill-opacity 120ms ease, stroke-width 120ms ease; }
 .dot.sel { stroke: #eaf6ff; stroke-width: 1.6; }
+
+/* Hover isolates one dot and fades the rest: the chart reads like a spotlight. */
+#scatter:hover .dot { fill-opacity: 0.2; }
+#scatter .dot:hover { fill-opacity: 1; stroke: #eaf6ff; stroke-width: 2; }
+#map:hover .site-dot { fill-opacity: 0.25; }
+#map .site-dot:hover { fill-opacity: 1; stroke: #eaf6ff; stroke-width: 1.2; }
+
+/* Floating readout, positioned from the pointer. */
+#tip {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -135%);
+  transition: opacity 90ms ease;
+  background: rgba(9, 19, 29, 0.97);
+  border: 1px solid #24384c;
+  border-radius: 10px;
+  padding: 8px 11px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #dbe9f4;
+  box-shadow: 0 16px 34px -16px #000;
+  max-width: 250px;
+  white-space: nowrap;
+}
+
+#tip.on { opacity: 1; }
+#tip b { color: #fff; font-weight: 650; }
+#tip .muted { color: #7f97ab; }
 .annot { font-size: 11px; fill: #9db2c6; }
 
 .card-head {
@@ -471,11 +500,13 @@ footer code { color: #cfe0ee; }
   .head-right { align-items: flex-start; }
   .source { justify-content: flex-start; }
   .official-logo { align-items: flex-start; }
-  .official-logo img { width: 180px; }
+  .official-logo img { width: 132px; opacity: 0.8; }
+  .brand { align-items: flex-start; gap: 12px; }
+  .eyebrow { font-size: 9.5px; letter-spacing: 0.1em; line-height: 1.5; }
   footer { padding: 14px 18px 36px; }
   .foot-grid { grid-template-columns: 1fr; gap: 18px; }
   .stats { grid-template-columns: repeat(2, 1fr); }
   #chart { height: 220px; }
-  h1 { font-size: 27px; }
-  .brand-mark { width: 54px; height: 54px; }
+  h1 { font-size: 29px; letter-spacing: -0.025em; }
+  .brand-mark { width: 46px; height: 46px; }
 }
