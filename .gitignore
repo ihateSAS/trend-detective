@@ -1,7 +1,8 @@
 server.log
 .DS_Store
 
-# film build outputs
+# film source and build outputs stay local (only the rendered film is published)
+video/
 video/*.mp4
 video/audio/v*.mp3
 video/audio/t*.wav

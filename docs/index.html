@@ -6,7 +6,7 @@
 <title>Trend Detective — NASA Space Apps Challenge 2026</title>
 <meta name="description" content="A sampling audit of Earth-system trends: 40 sites, 80 statistical tests, one honest false-discovery correction. Is the trend in the planet, or in the sample?">
 <meta name="theme-color" content="#03050a">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='27' cy='27' r='15' fill='%230b1420'/%3E%3Ccircle cx='27' cy='27' r='17' fill='none' stroke='%235bc8e0' stroke-width='4'/%3E%3Ccircle cx='21' cy='33' r='3' fill='%232f6fb5'/%3E%3Ccircle cx='26' cy='30' r='2.4' fill='%232f6fb5'/%3E%3Ccircle cx='33' cy='20' r='2.8' fill='%23c9432f'/%3E%3Ccircle cx='29' cy='24' r='2.2' fill='%23c9432f'/%3E%3Cline x1='17' y1='38' x2='39' y2='15' stroke='%23ffd166' stroke-width='2.6' stroke-linecap='round'/%3E%3Cline x1='39' y1='39' x2='53' y2='53' stroke='%235bc8e0' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Crect width='64' height='64' rx='14' fill='%230a0a0c'/%3E%3Ccircle cx='32' cy='32' r='18.2' stroke='%23f7f7f8' stroke-width='5.8'/%3E%3Cpath d='M16.6 26.2C23.2 30.4 40.8 30.4 47.4 26.2' stroke='%236f7075' stroke-width='2.8' stroke-linecap='round'/%3E%3Cpath d='M17.8 36.4C23.6 39.2 40.4 39.2 46.2 36.4' stroke='%236f7075' stroke-width='2.8' stroke-linecap='round'/%3E%3Ccircle cx='38.4' cy='42' r='4.5' fill='%23f2694c'/%3E%3Cline x1='11.8' y1='47.2' x2='52.2' y2='16.8' stroke='%23eac33f' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -621,7 +621,7 @@ footer > * { max-width: var(--max); margin-left: auto; margin-right: auto; }
 .pin-hover, .pin-hover body, .pin-hover .chapter, .pin-hover .chapter * { cursor: pointer; }
 
 /* dragging the planet in the story chapters */
-.globe-grab, .globe-grab body, .globe-grab .chapter, .globe-grab .chapter-body { cursor: grab; }
+.globe-grab, .globe-grab body, .globe-grab .chapter, .globe-grab .chapter * { cursor: grab; }
 .globe-drag, .globe-drag * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
 
 </style>
@@ -669,25 +669,12 @@ footer > * { max-width: var(--max); margin-left: auto; margin-right: auto; }
 <!-- ============================================================ top bar -->
 <header class="topbar">
   <a class="brand" href="#top" aria-label="Trend Detective, back to top">
-    <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-      <defs>
-        <linearGradient id="ring" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stop-color="#2f6fb5"/>
-          <stop offset="0.55" stop-color="#5bc8e0"/>
-          <stop offset="1" stop-color="#3ddc97"/>
-        </linearGradient>
-        <clipPath id="lens"><circle cx="27" cy="27" r="14.6"/></clipPath>
-      </defs>
-      <line x1="38" y1="38" x2="53" y2="53" stroke="url(#ring)" stroke-width="7.5" stroke-linecap="round"/>
-      <circle cx="27" cy="27" r="15" fill="#0a1220"/>
-      <g clip-path="url(#lens)">
-        <line x1="13" y1="37" x2="42" y2="16" stroke="#ffd166" stroke-width="3.4" stroke-linecap="round"/>
-        <circle cx="19" cy="34" r="3.4" fill="#2f6fb5"/>
-        <circle cx="30" cy="29" r="2.5" fill="#2f6fb5" fill-opacity="0.85"/>
-        <circle cx="35" cy="20" r="3.6" fill="#c9432f"/>
-      </g>
-      <circle cx="27" cy="27" r="15" fill="none" stroke="url(#ring)" stroke-width="4.6"/>
-      <circle cx="55" cy="10" r="2" fill="#5bc8e0" fill-opacity="0.75"/>
+    <svg class="brand-mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <circle cx="32" cy="32" r="22" stroke="#f3f5f9" stroke-width="3.5"/>
+      <path d="M12.5 24 C22 30 42 30 51.5 24" stroke="#f3f5f9" stroke-width="2" stroke-linecap="round" opacity=".45"/>
+      <path d="M12.5 41 C22 35 42 35 51.5 41" stroke="#f3f5f9" stroke-width="2" stroke-linecap="round" opacity=".45"/>
+      <line x1="6" y1="46" x2="58" y2="18" stroke="#ffd166" stroke-width="3.5" stroke-linecap="round"/>
+      <circle cx="40" cy="42" r="4.2" fill="#ff6b4a"/>
     </svg>
     <span class="wordmark">Trend Detective</span>
   </a>
@@ -931,12 +918,13 @@ footer > * { max-width: var(--max); margin-left: auto; margin-right: auto; }
     <div class="foot-col">
       <h3 data-i18n="f.h3">Use of AI — disclosure</h3>
       <p data-i18n="f.p4">
-        <strong>DeepSeek V4.1 Flash Fast</strong> was used under the team's direction and review
-        for the analysis pipeline, <code>ingest.py</code>, the web demo and first drafts of the
-        writeup. Every number on this page is produced by running that committed
-        code on public data; no figure, statistic or claim is generated by a language model. The
-        statistical choices (Mann–Kendall, Sen's slope, Benjamini–Hochberg) are standard published
-        methods, cited below, selected and reviewed by the team.
+        <strong>DeepSeek V4.1 Flash Fast</strong> assisted with the code — the analysis pipeline,
+        <code>ingest.py</code>, the web demo and first drafts of the writeup — all under the team's
+        direction and review. Running that code on public data, reading its output and drawing the
+        conclusions were done by the authors. Every number on this page comes from that run, so
+        every figure, statistic and claim here is reproducible and checkable. The statistical
+        choices (Mann–Kendall, Sen's slope, Benjamini–Hochberg) are standard published methods,
+        cited below, selected and reviewed by the team.
       </p>
     </div>
   </div>
@@ -1185,7 +1173,7 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
     "f.p1": "年值来自 NASA POWER 月度点数据（MERRA-2 再分析），1991–2025 年。趋势用 Mann–Kendall 检验（双侧，结值校正）和 Sen 斜率，在 <code>ingest.py</code> 中计算。多重比较用 Benjamini–Hochberg 方法控制。显著的趋势是变化的证据，而不是对变化的解释：再分析的网格值是模式估计，不是温度计读数，而且 35 年对于区分趋势和多年代际周期来说并不长。",
     "f.p2": "<a href=\"https://power.larc.nasa.gov/docs/services/api/temporal/monthly/\" target=\"_blank\" rel=\"noopener\">NASA POWER 月度点 API</a>（MERRA-2，AG 社区）· <code>T2M</code>、<code>PRECTOTCORR</code>。地球影像：NASA Blue Marble 与 Black Marble（NASA Earth Observatory）。地图轮廓：Natural Earth 1:110m（公有领域）。方法：Mann (1945)；Kendall (1975)；Sen (1968)；Benjamini &amp; Hochberg (1995)。",
     "f.p3": "NASA 和 NASA Space Apps Challenge 标识为官方活动标识，未作修改，仅用于标明所参加的挑战。挑战：<em>Be An Earth System Trend Detective!</em>",
-    "f.p4": "<strong>DeepSeek V4.1 Flash Fast</strong> 在团队的指导和审核下，用于分析流程、<code>ingest.py</code>、网页演示以及文稿初稿。本页的每个数字都来自在公开数据上运行已提交的代码；没有任何图表、统计量或结论由语言模型生成。统计方法（Mann–Kendall、Sen 斜率、Benjamini–Hochberg）均为已发表的标准方法，由团队选定并审核。",
+    "f.p4": "<strong>DeepSeek V4.1 Flash Fast</strong> 在团队的指导和审核下协助编写代码：分析流程、<code>ingest.py</code>、网页演示以及文稿初稿。在公开数据上运行这些代码、解读输出并得出结论，均由作者完成。本页的每个数字都来自上述运行，因此每个图表、统计量和结论都可以复现、可以核对。统计方法（Mann–Kendall、Sen 斜率、Benjamini–Hochberg）均为已发表的标准方法，由团队选定并审核。",
     "f.base": "2026 NASA Space Apps 挑战赛 · aini 团队", "f.top": "回到顶部 ↑",
 
     "var.t2m.label": "2 米气温", "var.t2m.short": "气温", "var.t2m.units": "°C",
@@ -1285,7 +1273,7 @@ window.TREND_DATA = {"generated":"2026-11-16","challenge":"Be An Earth System Tr
     "f.p1": "Годовые значения получены из месячных точечных данных NASA POWER (реанализ MERRA-2) за 1991–2025 годы. Тренд оценивается тестом Mann–Kendall (двусторонним, с поправкой на совпадения) и наклоном Сена; расчёт выполняет <code>ingest.py</code>. Множественные сравнения контролируются методом Benjamini–Hochberg. Значимый тренд свидетельствует об изменении, но не объясняет его: ячейки сетки реанализа являются модельными оценками, а не показаниями термометров, а 35 лет мало, чтобы отличить тренд от многодесятилетнего цикла.",
     "f.p2": "<a href=\"https://power.larc.nasa.gov/docs/services/api/temporal/monthly/\" target=\"_blank\" rel=\"noopener\">Месячный точечный API NASA POWER</a> (MERRA-2, сообщество AG) · <code>T2M</code>, <code>PRECTOTCORR</code>. Изображения Земли: NASA Blue Marble и Black Marble (NASA Earth Observatory). Контуры карты: Natural Earth 1:110m (общественное достояние). Методы: Mann (1945); Kendall (1975); Sen (1968); Benjamini &amp; Hochberg (1995).",
     "f.p3": "NASA и логотип NASA Space Apps Challenge являются официальной символикой события; они использованы без изменений и только для указания на конкурс. Задание: <em>Be An Earth System Trend Detective!</em>",
-    "f.p4": "<strong>DeepSeek V4.1 Flash Fast</strong> использовался под руководством и контролем команды для конвейера анализа, <code>ingest.py</code>, веб-демо и первых черновиков текста. Каждое число на этой странице получено запуском опубликованного кода на открытых данных; ни один график, показатель или вывод не создан языковой моделью. Статистические методы (Mann–Kendall, наклон Сена, Benjamini–Hochberg) являются стандартными опубликованными методами, которые выбрала и проверила команда.",
+    "f.p4": "<strong>DeepSeek V4.1 Flash Fast</strong> помогал писать код: конвейер анализа, <code>ingest.py</code>, веб-демо и первые черновики текста — всё под руководством и контролем команды. Запуск этого кода на открытых данных, интерпретацию результатов и выводы выполнили авторы. Каждое число на этой странице получено в ходе этого запуска, поэтому каждый график, показатель и вывод можно воспроизвести и проверить. Статистические методы (Mann–Kendall, наклон Сена, Benjamini–Hochberg) являются стандартными опубликованными методами, которые выбрала и проверила команда.",
     "f.base": "NASA Space Apps Challenge 2026 · Команда aini", "f.top": "Наверх ↑",
 
     "var.t2m.label": "Температура воздуха на высоте 2 м", "var.t2m.short": "Температура", "var.t2m.units": "°C",
@@ -2433,7 +2421,26 @@ void main(){
   // is an offset from where the chapter wants the globe; it eases away when the chapter changes.
   const off = { lon: 0, lat: 0, dragging: false, moved: false, px: 0, py: 0, releasing: false };
   const onGlobe = (e) => Math.hypot(e.clientX - cur.x, e.clientY - cur.y) < cur.r;
-  const empty = (e) => e.target instanceof Element && e.target.matches(".chapter, .chapter-body, footer, body, html");
+  // "Empty" means no control or panel under the pointer and no actual letters: a headline's box
+  // is as wide as the page, but only its words should block a grab.
+  const overText = (el, x, y) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    for (let node = walker.nextNode(), n = 0; node && n < 400; node = walker.nextNode(), n++) {
+      if (!node.nodeValue.trim()) continue;
+      range.selectNodeContents(node);
+      for (const r of range.getClientRects()) {
+        if (x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 4 && y <= r.bottom + 4) return true;
+      }
+    }
+    return false;
+  };
+  const empty = (e) => {
+    const el = e.target;
+    if (!(el instanceof Element) || el.closest(BUSY + ", img, .official-logo")) return false;
+    if (el.matches(".chapter, .chapter-body, footer, body, html")) return true;
+    return !overText(el, e.clientX, e.clientY);
+  };
   let suppressClick = false;
   addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || e.pointerType === "touch" || !empty(e) || !onGlobe(e) || cur.dim > 0.5 || cur.explore > 0.5) return;

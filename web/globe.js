@@ -263,7 +263,26 @@ void main(){
   // is an offset from where the chapter wants the globe; it eases away when the chapter changes.
   const off = { lon: 0, lat: 0, dragging: false, moved: false, px: 0, py: 0, releasing: false };
   const onGlobe = (e) => Math.hypot(e.clientX - cur.x, e.clientY - cur.y) < cur.r;
-  const empty = (e) => e.target instanceof Element && e.target.matches(".chapter, .chapter-body, footer, body, html");
+  // "Empty" means no control or panel under the pointer and no actual letters: a headline's box
+  // is as wide as the page, but only its words should block a grab.
+  const overText = (el, x, y) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    for (let node = walker.nextNode(), n = 0; node && n < 400; node = walker.nextNode(), n++) {
+      if (!node.nodeValue.trim()) continue;
+      range.selectNodeContents(node);
+      for (const r of range.getClientRects()) {
+        if (x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 4 && y <= r.bottom + 4) return true;
+      }
+    }
+    return false;
+  };
+  const empty = (e) => {
+    const el = e.target;
+    if (!(el instanceof Element) || el.closest(BUSY + ", img, .official-logo")) return false;
+    if (el.matches(".chapter, .chapter-body, footer, body, html")) return true;
+    return !overText(el, e.clientX, e.clientY);
+  };
   let suppressClick = false;
   addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || e.pointerType === "touch" || !empty(e) || !onGlobe(e) || cur.dim > 0.5 || cur.explore > 0.5) return;

@@ -1,11 +1,15 @@
 <p align="center">
   <a href="https://www.spaceappschallenge.org/">
-    <img src="video/assets/spaceapps.png" alt="NASA Space Apps Challenge" width="230">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/spaceapps.png">
+      <source media="(prefers-color-scheme: light)" srcset="assets/spaceapps-light.png">
+      <img src="assets/spaceapps-light.png" alt="NASA Space Apps Challenge" width="230">
+    </picture>
   </a>
 </p>
 
 <h1 align="center">
-  <img src="assets/readme/app-icon.svg" alt="" width="42" height="42">
+  <img src="assets/readme/app-icon.svg" alt="" width="56" height="56" align="middle">
   Trend Detective
 </h1>
 
@@ -76,8 +80,8 @@ so readers can inspect the effect of site selection.
 - **Methods and limits:** see how Mann–Kendall tests and Benjamini–Hochberg correction affect the findings.
 
 The [screen capture](https://ihatesas.github.io/trend-detective/demo-capture.mp4)
-shows the tool in use. The narrated demo and its build instructions are in
-[`video/`](video/).
+shows the tool in use; the [narrated film](https://ihatesas.github.io/trend-detective/film.mp4)
+is the 30-second version.
 
 ## Run locally
 
@@ -119,7 +123,6 @@ before rebuilding.
 | [`data/`](data/) | Cached NASA responses and computed annual series |
 | [`build.py`](build.py) | Self-contained HTML bundler |
 | [`docs/`](docs/) | Published app and demonstration videos |
-| [`video/`](video/) | Narrated film source and rendering instructions |
 | [`documentation/`](documentation/) | Detailed methodology, findings, and archived submission notes |
 
 ## Interpretation
@@ -150,10 +153,9 @@ aggregation rules, significance tests, limitations, and planned improvements.
 
 ## AI disclosure
 
-DeepSeek V4.1 Flash Fast assisted with the analysis pipeline, `ingest.py`, the web
-demo, and initial writeup under the team's direction and review. Reported numbers
-come from running the committed code against NASA POWER data; statistical methods
-were selected and reviewed by the team.
+DeepSeek V4.1 Flash Fast assisted with the code — the analysis pipeline, `ingest.py`,
+the web demo and the initial writeup — under the team's direction and review. Running
+that code against NASA POWER data, reading its output and drawing the conclusions were
+done by the team. Statistical methods were selected and reviewed by the authors.
 
-The narrated film uses AI-generated voice and is visibly labeled. See
-[`video/README.md`](video/README.md) for production details.
+The narrated film uses AI-generated voice and is visibly labeled.

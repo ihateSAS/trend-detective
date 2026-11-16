@@ -54,11 +54,13 @@ rather than only to break a fake one.
 
 ## Use of Artificial Intelligence
 
-- **DeepSeek V4.1 Flash Fast** was used under the team's direction and review for the analysis
-  pipeline, `ingest.py`, the web demo and first drafts of this document.
-- Every number in this submission comes from executing that committed code against NASA POWER's public
-  API. No figure was produced by a language model. The statistical choices (Mann–Kendall, Sen's slope,
-  Benjamini–Hochberg) are standard published methods, cited below, selected and reviewed by the team.
+- **DeepSeek V4.1 Flash Fast** assisted with the code — the analysis pipeline, `ingest.py`, the web
+  demo and first drafts of this document — under the team's direction and review.
+- Running that code against NASA POWER's public API, reading its output and drawing the conclusions
+  were done by the authors. Every number in this submission comes from that run, so every figure,
+  statistic and claim here is reproducible and checkable. The statistical choices (Mann–Kendall,
+  Sen's slope, Benjamini–Hochberg) are standard published methods, cited below, selected and reviewed
+  by the team.
 
 ## NASA Data
 
