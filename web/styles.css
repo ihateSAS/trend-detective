@@ -427,9 +427,9 @@ main { display: block; }
 
 /* --------------------------------------------------------------- the charts */
 
-#scatter { width: 100%; height: 400px; display: block; }
+#scatter { width: 100%; height: clamp(320px, 34vw, 480px); display: block; }
 
-.dot-label { font-size: 9.5px; fill: #8a8a93; pointer-events: none; font-family: var(--sans); }
+.dot-label { font-size: 11.5px; fill: #a1a1aa; pointer-events: none; font-family: var(--sans); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
 .zero-line { stroke: #2c2c33; stroke-width: 1; stroke-dasharray: 3 3; }
 .fit-line { stroke: var(--sen); stroke-width: 1.6; stroke-opacity: 0.8; }
 .dot { cursor: pointer; stroke: var(--bg); stroke-width: 0.8; transition: fill-opacity 120ms ease, stroke-width 120ms ease; }
@@ -463,7 +463,8 @@ main { display: block; }
 #tip.on { opacity: 1; }
 #tip b { color: #fff; font-weight: 600; }
 #tip .muted { color: var(--muted); }
-.annot { font-size: 11px; fill: #a1a1aa; }
+.annot { font-size: 12px; fill: #a1a1aa; font-family: var(--sans); }
+.annot.rho { font-family: var(--mono); font-size: 11.5px; fill: #d4d4d8; }
 
 .seg {
   display: inline-flex;
@@ -553,7 +554,7 @@ main { display: block; }
 .chart-wrap { width: 100%; }
 #chart { width: 100%; height: 260px; display: block; }
 
-.axis text { fill: #71717a; font-size: 10.5px; font-family: var(--sans); }
+.axis text { fill: #71717a; font-size: 11px; font-family: var(--sans); }
 .axis line, .axis path { stroke: #222228; stroke-width: 1; }
 
 .series-line { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-opacity: 0.55; }

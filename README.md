@@ -85,9 +85,8 @@ rather than only to break a fake one.
 
 ## Use of Artificial Intelligence
 
-- AI coding agents were used under the team's direction and review: **Codebuff** and **DeepSeek**
-  for the analysis pipeline, `ingest.py`, the web demo and first drafts of this document;
-  **OpenCode (GLM)** for the interface redesign and submission materials.
+- **DeepSeek V4.1 Flash Fast** was used under the team's direction and review for the analysis
+  pipeline, `ingest.py`, the web demo and first drafts of this document.
 - Every number in this submission comes from executing that committed code against NASA POWER's public
   API. No figure was produced by a language model. The statistical choices (Mann–Kendall, Sen's slope,
   Benjamini–Hochberg) are standard published methods, cited below, selected and reviewed by the team.

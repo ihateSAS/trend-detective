@@ -129,7 +129,10 @@
       }));
     if (pts.length < 3) return;
 
-    const W = 900, H = 380, pad = { l: 66, r: 26, t: 20, b: 50 };
+    // Draw in real pixels: a fixed viewBox stretched by CSS distorts the text.
+    const W = Math.max(320, Math.round(svg.clientWidth) || 900);
+    const H = Math.max(240, Math.round(svg.clientHeight) || 380);
+    const pad = { l: 56, r: 22, t: 46, b: 50 };
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
 
     const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
@@ -186,12 +189,47 @@
         `<b>${p.site.name}</b><br>rain ${fmt(p.x, 1)} % \u00b7 temp ${fmt(p.y, 2)} \u00b0C per decade<br><span class="muted">temp p ${pLabel(p.site.series.t2m.p_value)} \u00b7 ${p.site.series.t2m.survives_fdr ? "survives FDR" : "raw p only"}</span>`);
       dot.addEventListener("click", () => select(p.site.id));
       svg.appendChild(dot);
-      // Label the named sites only; grid points would turn this into a word cloud.
-      if (p.site.sample !== "grid") {
-        const label = el("text", { x: sx(p.x) + 8, y: sy(p.y) - 7, class: "dot-label" });
-        label.textContent = p.site.name.split(",")[0];
-        svg.appendChild(label);
+    }
+
+    // Label the named sites only; grid points would turn this into a word cloud.
+    // Each label tries eight spots around its dot and takes the first that hits
+    // no other label, no dot and no edge; failing that, the least-crowded one.
+    const dotBoxes = pts.map((p) => {
+      const r = (p.site.sample === "grid" ? 4.2 : 6) + 2;
+      return { x: sx(p.x) - r, y: sy(p.y) - r, w: 2 * r, h: 2 * r };
+    });
+    const placed = [];
+    const overlap = (a, b) =>
+      Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) *
+      Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+    const named0 = pts.filter((p) => p.site.sample !== "grid")
+      .sort((a, b) => sy(a.y) - sy(b.y));
+    for (const p of named0) {
+      const cx = sx(p.x), cy = sy(p.y);
+      const label = el("text", { class: "dot-label" });
+      label.textContent = p.site.name.split(",")[0];
+      svg.appendChild(label);
+      const w = label.getComputedTextLength() || label.textContent.length * 6;
+      const h = 11, g = 9;
+      const spots = [
+        [cx + g, cy - 3],          [cx - g - w, cy - 3],
+        [cx + g - 2, cy - g - 7],  [cx - w - g + 2, cy - g - 7],
+        [cx + g - 2, cy + g + 1],  [cx - w - g + 2, cy + g + 1],
+        [cx - w / 2, cy - g - 9],  [cx - w / 2, cy + g + 3],
+      ];
+      let best = null;
+      for (const [x, y] of spots) {
+        const box = { x, y: y - h + 2, w, h };
+        let cost = 0;
+        if (box.x < pad.l || box.x + w > W - pad.r || box.y < pad.t - 4 || box.y + h > H - pad.b) cost += 1e6;
+        for (const o of placed) cost += overlap(box, o) * 10;
+        for (const o of dotBoxes) cost += overlap(box, o);
+        if (!best || cost < best.cost) best = { x, y, box, cost };
+        if (cost === 0) break;
       }
+      label.setAttribute("x", best.x.toFixed(1));
+      label.setAttribute("y", best.y.toFixed(1));
+      placed.push(best.box);
     }
 
     // The audit: the same correlation, computed three ways. The named sites are
@@ -205,13 +243,13 @@
     const rhoGrid = grid.length > 2 ? rhoOf(grid) : null;
     const fmtRho = (r) => (r === null ? "n/a" : r.toFixed(2));
 
-    const yLab = el("text", { x: pad.l, y: 12, class: "annot" });
+    const yLab = el("text", { x: pad.l, y: 14, class: "annot" });
     yLab.textContent = "Temperature trend (°C per decade)";
     svg.appendChild(yLab);
     const xLab = el("text", { x: W - pad.r, y: H - 6, class: "annot", "text-anchor": "end" });
     xLab.textContent = "Precipitation trend (% per decade)";
     svg.appendChild(xLab);
-    const annot = el("text", { x: pad.l + 8, y: pad.t + 16, class: "annot" });
+    const annot = el("text", { x: pad.l, y: 33, class: "annot rho" });
     annot.textContent =
       `Spearman rho — named ${fmtRho(rhoNamed)} (n=${named.length}) · grid ${fmtRho(rhoGrid)} (n=${grid.length}) · all ${fmtRho(rhoAll)}`;
     svg.appendChild(annot);
@@ -333,7 +371,8 @@
   function drawChart(site) {
     const series = site.series[state.variable];
     const svg = $("chart");
-    const W = 760, H = 300;
+    const W = Math.max(300, Math.round(svg.clientWidth) || 760);
+    const H = Math.max(180, Math.round(svg.clientHeight) || 300);
     const pad = { l: 58, r: 18, t: 14, b: 34 };
     svg.innerHTML = "";
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
@@ -491,4 +530,15 @@
 
   $("range-chip").textContent = `${D.start_year}–${D.end_year}`;
   render();
+
+  // Charts are drawn in real pixels, so redraw when the width changes.
+  let lastWidth = innerWidth, resizeTimer = 0;
+  addEventListener("resize", () => {
+    if (innerWidth === lastWidth) return;
+    lastWidth = innerWidth;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 120);
+  });
+  // Web fonts change label widths; place labels again once they arrive.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
 })();
