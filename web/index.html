@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trend Detective — NASA Space Apps 2026</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="titles">
+    <h1>Trend Detective</h1>
+    <p class="sub">NASA Space Apps Challenge 2026 · <em>Be An Earth System Trend Detective!</em></p>
+  </div>
+  <div class="source">
+    <span class="chip">NASA POWER · MERRA-2</span>
+    <span class="chip muted" id="range-chip">1991–2025</span>
+  </div>
+</header>
+
+<main>
+  <section class="card scatter-card">
+    <div class="card-head">
+      <div>
+        <h2>Wetter places cool, drier places warm</h2>
+        <p class="meta" id="scatter-note">One dot per site. Rainfall and temperature trends from the same 35 years.</p>
+      </div>
+      <span class="chip" id="fdr-chip">—</span>
+    </div>
+    <div class="chart-wrap">
+      <svg id="scatter" viewBox="0 0 900 380" preserveAspectRatio="none" role="img"
+           aria-label="Scatter of rainfall trend against temperature trend"></svg>
+    </div>
+    <p class="reading" id="scatter-reading">—</p>
+  </section>
+
+  <section class="card map-card">
+    <div class="card-head">
+      <h2>Where it is changing</h2>
+      <div class="seg" id="variable-toggle" role="group" aria-label="Variable">
+        <button data-variable="t2m" class="on">Temperature</button>
+        <button data-variable="precip">Precipitation</button>
+      </div>
+    </div>
+    <div class="map-wrap">
+      <svg id="map" viewBox="-180 -92 360 184" preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="World map of sites coloured by trend"></svg>
+    </div>
+    <div class="legend" id="legend"></div>
+    <p class="hint">Colour is the Sen's slope per decade. Faded dots are not significant at the 5% level. Click a site.</p>
+  </section>
+
+  <section class="card detail-card">
+    <div class="card-head">
+      <div>
+        <h2 id="site-name">—</h2>
+        <p class="meta" id="site-meta">—</p>
+      </div>
+      <span class="verdict" id="verdict">—</span>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="chart-wrap">
+      <svg id="chart" viewBox="0 0 760 300" preserveAspectRatio="none" role="img"
+           aria-label="Annual series with fitted Sen's slope"></svg>
+    </div>
+    <div class="chart-legend">
+      <span><i class="swatch line"></i>Annual value</span>
+      <span><i class="swatch sen"></i>Sen's slope</span>
+    </div>
+    <p class="reading" id="reading">—</p>
+  </section>
+
+  <section class="card table-card">
+    <div class="card-head">
+      <h2>Every site, ranked</h2>
+      <p class="meta" id="table-note"></p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Site</th>
+            <th>Region</th>
+            <th class="num">Per decade</th>
+            <th class="num">First → last decade</th>
+            <th class="num">p</th>
+            <th>Verdict</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>
+    <strong>Method.</strong> Annual values from NASA POWER monthly point data (MERRA-2 reanalysis),
+    1991–2025. Trend by Mann–Kendall (two-sided, tie-corrected) and Sen's slope, computed in
+    <code>ingest.py</code>. A significant trend is evidence of a change, not an explanation of one:
+    reanalysis grid cells are modelled estimates, not thermometers, and 35 years is short for
+    separating a trend from a multi-decade cycle.
+  </p>
+</footer>
+
+<script src="world.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
