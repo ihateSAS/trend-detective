@@ -10,6 +10,38 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<style>
+/* Live-probe card ("Audit any point on Earth"). Self-contained on purpose. */
+.probe-card { grid-column: 1 / -1; }
+.probe-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.probe-controls input {
+  width: 9.5ch; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line);
+  background: #0a121b; color: var(--text); font: inherit; font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.probe-controls input:focus { outline: 1px solid var(--accent); }
+.probe-preset {
+  appearance: none; border: 1px solid var(--line); background: #0a121b; color: var(--muted);
+  font: inherit; font-size: 12px; padding: 6px 11px; border-radius: 999px; cursor: pointer;
+}
+.probe-preset:hover { color: #d9edf7; border-color: #2a4258; }
+#probe-run {
+  appearance: none; border: 0; background: var(--accent); color: #052330; font: inherit;
+  font-size: 13px; font-weight: 650; padding: 8px 16px; border-radius: 999px; cursor: pointer;
+}
+#probe-run:disabled { opacity: 0.55; cursor: wait; }
+#probe-status { font-size: 12px; color: var(--muted); min-height: 18px; }
+#probe-status.err { color: #e08880; }
+.probe-results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.probe-var { background: #0a121b; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.probe-var .pk { font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.probe-var .pv { font-size: 20px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.probe-var .pv small { font-size: 11.5px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+.probe-var .pm { font-size: 12px; color: #b9cbdb; margin-top: 4px; }
+.probe-spark { width: 100%; height: 64px; display: block; margin-top: 8px; }
+.probe-note { font-size: 11.5px; color: #6b8095; margin-top: 10px; }
+@media (max-width: 940px) { .probe-results { grid-template-columns: 1fr; } }
+</style>
 </head>
 <body>
 
@@ -227,6 +259,26 @@
       </div>
     </div>
   </section>
+
+  <!-- ========================================================== live probe -->
+  <section class="section span" id="probe">
+    <div class="section-head reveal">
+      <span class="label">(Audit any point)</span><span class="label">/05</span><span class="label">live</span>
+    </div>
+    <h2 class="section-title reveal">Run the test <em>on a point we never chose.</em></h2>
+    <div class="card probe-card reveal">
+      <p class="meta">Type coordinates or pick a city. The page fetches NASA POWER monthly data live and runs the same Mann–Kendall test + Sen's slope, entirely in your browser. One request to power.larc.nasa.gov per run.</p>
+      <div class="probe-controls">
+        <input id="probe-lat" type="text" inputmode="decimal" placeholder="lat (°)" value="35.68" aria-label="Latitude">
+        <input id="probe-lon" type="text" inputmode="decimal" placeholder="lon (°)" value="139.69" aria-label="Longitude">
+        <button id="probe-run" type="button">Run test</button>
+        <span id="probe-presets" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+      </div>
+      <p id="probe-status">Choose a point, then Run test.</p>
+      <div class="probe-results" id="probe-results"></div>
+      <p class="probe-note" id="probe-note"></p>
+    </div>
+  </section>
 </main>
 
 <!-- ============================================================ footer -->
@@ -277,6 +329,161 @@
   </div>
 </footer>
 
+<script>
+/* ============================================================ live probe
+ * "Audit any point on Earth" — fetches NASA POWER monthly point data for any
+ * lat/lon and runs the same statistics as ingest.py (annual aggregation,
+ * tie-corrected two-sided Mann–Kendall with continuity correction, Sen's
+ * slope), entirely in the browser. POWER sends access-control-allow-origin: *.
+ * Deliberately self-contained: if anything here fails, the rest of the page
+ * is untouched.
+ */
+(function () {
+  "use strict";
+  var runBtn = document.getElementById("probe-run");
+  if (!runBtn) return;
+
+  var BASE = "https://power.larc.nasa.gov/api/temporal/monthly/point";
+  var START = 1991, END = 2025, FILL = -999.0;
+  var DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  var PRESETS = [
+    ["Tokyo", 35.68, 139.69], ["Nairobi", -1.29, 36.82], ["S\u00e3o Paulo", -23.55, -46.63],
+    ["Cairo", 30.04, 31.24], ["Chicago", 41.88, -87.63], ["Perth", -31.95, 115.86],
+  ];
+  var statusEl = document.getElementById("probe-status");
+  var resultsEl = document.getElementById("probe-results");
+  var noteEl = document.getElementById("probe-note");
+  var presetsEl = document.getElementById("probe-presets");
+  var latIn = document.getElementById("probe-lat");
+  var lonIn = document.getElementById("probe-lon");
+
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "probe-preset"; b.textContent = p[0];
+    b.addEventListener("click", function () { latIn.value = p[1]; lonIn.value = p[2]; run(); });
+    presetsEl.appendChild(b);
+  });
+
+  function erf(x) { /* Abramowitz–Stegun 7.1.26 */
+    var s = x < 0 ? -1 : 1; x = Math.abs(x);
+    var t = 1 / (1 + 0.3275911 * x);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return s * y;
+  }
+  function pTwoSided(z) { return 2 * (1 - 0.5 * (1 + erf(Math.abs(z) / Math.SQRT2))); }
+
+  function annual(monthly, mode) {
+    /* {"YYYYMM": v} -> [annual values], complete years only. Temp = mean,
+       precip = sum(mm/day * days in month). Matches ingest.py exactly. */
+    var byYear = {}, out = [], years = [];
+    for (var k in monthly) {
+      var v = monthly[k];
+      if (k.length !== 6 || v === FILL || v === null) continue;
+      var y = +k.slice(0, 4), m = +k.slice(4, 6) - 1;
+      if (y < START || y > END || m < 0 || m > 11) continue;
+      (byYear[y] = byYear[y] || [0, 0])[m] = v;
+    }
+    for (var y2 in byYear) {
+      var row = byYear[y2], complete = row.every(function (x) { return typeof x === "number"; });
+      if (!complete || row.length !== 12) continue;
+      var val = 0;
+      if (mode === "mean") { var s = 0; for (var i = 0; i < 12; i++) s += row[i]; val = s / 12; }
+      else { for (var j = 0; j < 12; j++) val += row[j] * DAYS[j]; }
+      years.push(+y2); out.push(val);
+    }
+    return { years: years, values: out };
+  }
+
+  function mannKendall(ys) {
+    var n = ys.length, S = 0, i, j;
+    for (i = 0; i < n - 1; i++) for (j = i + 1; j < n; j++) S += Math.sign(ys[j] - ys[i]);
+    var counts = {}, uniq = [];
+    ys.forEach(function (v) { (counts[v] = (counts[v] || 0) + 1); });
+    for (var c in counts) if (counts[c] > 1) uniq.push(counts[c]);
+    var varS = n * (n - 1) * (2 * n + 5) / 18;
+    uniq.forEach(function (t) { varS -= t * (t - 1) * (2 * t + 5) / 18; });
+    var z = S > 0 ? (S - 1) / Math.sqrt(varS) : S < 0 ? (S + 1) / Math.sqrt(varS) : 0;
+    return { z: z, p: pTwoSided(z), s: S, n: n };
+  }
+
+  function senSlope(ys) {
+    var slopes = [], n = ys.length, i, j;
+    for (i = 0; i < n - 1; i++) for (j = i + 1; j < n; j++) slopes.push((ys[j] - ys[i]) / (j - i));
+    slopes.sort(function (a, b) { return a - b; });
+    var m = slopes.length;
+    return m % 2 ? slopes[(m - 1) / 2] : (slopes[m / 2 - 1] + slopes[m / 2]) / 2;
+  }
+
+  function spark(years, values, slopePerYear) {
+    var W = 300, H = 64, pad = 6;
+    var lo = Math.min.apply(null, values), hi = Math.max.apply(null, values);
+    var r = (hi - lo) || 1; lo -= r * 0.1; hi += r * 0.1;
+    var x = function (yr) { return pad + (yr - years[0]) / (years[years.length - 1] - years[0] || 1) * (W - 2 * pad); };
+    var y = function (v) { return H - pad - (v - lo) / (hi - lo) * (H - 2 * pad); };
+    var line = values.map(function (v, i) { return (i ? "L" : "M") + x(years[i]).toFixed(1) + "," + y(v).toFixed(1); }).join(" ");
+    var y0 = values[0] - slopePerYear * (years[0] - years[0]);
+    var yN = values[values.length - 1];
+    var b0 = y0, b1 = y0 + slopePerYear * (years[years.length - 1] - years[0]);
+    var sen = "M" + x(years[0]).toFixed(1) + "," + y(b0).toFixed(1) + " L" + x(years[years.length - 1]).toFixed(1) + "," + y(b1).toFixed(1);
+    return '<svg class="probe-spark" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="annual series with fitted slope">'
+      + '<path d="' + line + '" fill="none" stroke="#5bc8e0" stroke-width="1.4" stroke-opacity="0.6"/>'
+      + '<path d="' + sen + '" fill="none" stroke="#ffd166" stroke-width="1.8"/></svg>';
+  }
+
+  function verdictCard(title, ann, slopePerYear, p, unit) {
+    var perDec = slopePerYear * 10, sig = p < 0.05;
+    var pct = title === "Precipitation" && ann.mean ? " (" + (perDec / ann.mean * 100).toFixed(1) + "%/dec)" : "";
+    return '<div class="probe-var"><div class="pk">' + title + "</div>"
+      + '<div class="pv">' + (perDec > 0 ? "+" : "") + perDec.toFixed(2) + "<small>" + unit + "/decade" + pct + "</small></div>"
+      + '<div class="pm">Mann–Kendall p = ' + (p < 0.001 ? "&lt; 0.001" : p.toFixed(3)) + " · " + ann.values.length + " complete years · "
+      + (sig ? '<span style="color:#3ddc97;font-weight:600">significant (raw p)</span>' : "not significant") + "</div>"
+      + spark(ann.years, ann.values, slopePerYear) + "</div>";
+  }
+
+  function run() {
+    var lat = parseFloat(latIn.value), lon = parseFloat(lonIn.value);
+    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      statusEl.textContent = "Enter a latitude between −90 and 90 and a longitude between −180 and 180.";
+      statusEl.className = "err"; return;
+    }
+    statusEl.className = ""; statusEl.textContent = "Fetching NASA POWER monthly point data…";
+    runBtn.disabled = true;
+    var url = BASE + "?parameters=T2M,PRECTOTCORR&community=AG&longitude=" + lon + "&latitude=" + lat
+      + "&start=" + START + "&end=" + END + "&format=JSON";
+    fetch(url).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (d) {
+        var params = d.properties && d.properties.parameter;
+        if (!params) throw new Error("unexpected response");
+        var t = annual(params.T2M || {}, "mean");
+        var pr = annual(params.PRECTOTCORR || {}, "sum");
+        var cards = "";
+        if (t.values.length >= 10) {
+          var mt = mannKendall(t.values);
+          cards += verdictCard("Air temperature at 2 m", t, senSlope(t.values), mt.p, "°C");
+        }
+        if (pr.values.length >= 10) {
+          var mp = mannKendall(pr.values);
+          pr.mean = pr.values.reduce(function (a, b) { return a + b; }, 0) / pr.values.length;
+          cards += verdictCard("Precipitation", pr, senSlope(pr.values), mp.p, "mm");
+        }
+        resultsEl.innerHTML = cards;
+        if (!cards) {
+          statusEl.textContent = "No complete years of data at this point (open water or ice sheet). Try another point.";
+        } else {
+          statusEl.textContent = "Live result for " + lat.toFixed(2) + "°, " + lon.toFixed(2) + "° — computed in your browser from the same NASA POWER monthly point API (MERRA-2).";
+          noteEl.textContent = "A single new test has no multiple-comparison family, so the raw p is reported as-is; the FDR correction on this page applies across the 80 precomputed site tests. Reanalysis values are modelled estimates, not thermometers.";
+        }
+      })
+      .catch(function (e) {
+        statusEl.textContent = "Could not reach NASA POWER (" + e.message + "). The precomputed 40-site results above are unaffected.";
+        statusEl.className = "err";
+      })
+      .finally(function () { runBtn.disabled = false; });
+  }
+
+  runBtn.addEventListener("click", run);
+})();
+</script>
 <script src="world.js"></script>
 <script src="data.js"></script>
 <script src="app.js"></script>
