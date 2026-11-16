@@ -85,9 +85,9 @@ rather than only to break a fake one.
 
 ## Use of Artificial Intelligence
 
-- **DeepSeek V4.1 Flash** — used by the team for research, drafting and prose editing.
-- **AI coding agent** — wrote `ingest.py`, the web demo and the first draft of this document under the
-  team's direction, from prompts the team wrote and reviewed.
+- **DeepSeek V4.1 Flash Fast** — used by the team for research, drafting, prose editing and code
+  generation: `ingest.py`, the web demo and the first draft of this document, from prompts the team
+  wrote and reviewed.
 - Every number in this submission comes from executing that committed code against NASA POWER's public
   API. No figure was produced by a language model. The statistical choices (Mann–Kendall, Sen's slope,
   Benjamini–Hochberg) are standard published methods, cited below, selected and reviewed by the team.

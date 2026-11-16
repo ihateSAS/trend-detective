@@ -193,10 +193,39 @@
       `Spearman rho — named ${fmtRho(rhoNamed)} (n=${named.length}) · grid ${fmtRho(rhoGrid)} (n=${grid.length}) · all ${fmtRho(rhoAll)}`;
     svg.appendChild(annot);
 
+    // The masthead strip has ids but no owner otherwise, so it would sit at "—" forever.
+    const setAudit = (id, html) => {
+      const node = $(id);
+      if (node) node.innerHTML = html;
+    };
+    setAudit("audit-sites", `${n}`);
+    setAudit("audit-split", `${named.length} named \u00b7 ${grid.length} grid`);
+    setAudit("audit-tests", `${D.tests_total}`);
+    setAudit("audit-fdr", `${D.tests_surviving} <span style="color:var(--muted)">of ${D.tests_significant}</span>`);
+    setAudit("audit-rho", `named <b>${fmtRho(rhoNamed)}</b> \u00b7 grid <i>${fmtRho(rhoGrid)}</i>`);
+
     $("scatter-note").textContent =
       `One dot per site. ${named.length} named sites, ${grid.length} systematic grid points, the same ${D.end_year - D.start_year + 1} years. Faded dots: temperature trend not significant at 5%.`;
     $("fdr-chip").textContent =
       `${D.tests_surviving} of ${D.tests_total} trends survive FDR (q = ${D.fdr_q})`;
+
+    // Masthead audit strip — always filled from the live data so it can never
+    // go stale or disagree with the scatter.
+    const strip = {
+      sites: $("audit-sites"),
+      split: $("audit-split"),
+      tests: $("audit-tests"),
+      fdr: $("audit-fdr"),
+      rho: $("audit-rho"),
+    };
+    if (strip.rho) {
+      strip.sites.textContent = String(D.sites.length);
+      strip.split.textContent = `${named.length} named · ${grid.length} grid`;
+      strip.tests.textContent = String(D.tests_total);
+      strip.fdr.textContent = `${D.tests_surviving} of ${D.tests_total}`;
+      strip.rho.innerHTML =
+        `named <b>${fmtRho(rhoNamed)}</b> (n=${named.length}) → grid <i>${fmtRho(rhoGrid)}</i> (n=${grid.length})`;
+    }
 
     const collapse = rhoNamed !== null && rhoGrid !== null &&
       Math.abs(rhoNamed) > 0.35 && Math.abs(rhoGrid) < 0.25;
